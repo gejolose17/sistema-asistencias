@@ -682,6 +682,17 @@
       color: var(--white);
     }
 
+    .error-alert {
+      display: none;
+      background: #fee2e2;
+      border-left: 4px solid var(--danger);
+      color: #991b1b;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
     /* ── MODAL QR ── */
     .modal-backdrop {
       position: fixed;
@@ -1084,38 +1095,13 @@
     <section class="tab-pane" id="tab-configuracion">
       <div class="config-layout">
         <!-- MENÚ LATERAL DE LISTAS DESPLEGABLES A CONFIGURAR -->
-        <div class="catalog-menu">
-          <div style="background:var(--dark-gray);color:#fff;padding:13px 16px;font-weight:800;font-size:0.82rem;text-transform:uppercase;border-bottom:3px solid var(--primary);">
-            Listas Desplegables
+        <div class="catalog-menu" id="catalogMenuContainer">
+          <div style="background:var(--dark-gray);color:#fff;padding:12px 16px;font-weight:800;font-size:0.82rem;text-transform:uppercase;border-bottom:3px solid var(--primary);display:flex;justify-content:space-between;align-items:center;">
+            <span>Listas Desplegables</span>
+            <button type="button" class="btn-primary" style="padding:4px 9px;font-size:0.74rem;" onclick="openNewCampoModal()">
+              + Nuevo Campo
+            </button>
           </div>
-          <button type="button" class="catalog-menu-btn active" onclick="selectCatalogCategory('UNIDAD', this)">
-            <span>🏢 Unidad</span>
-            <span class="badge-count" id="catCount-UNIDAD">0</span>
-          </button>
-          <button type="button" class="catalog-menu-btn" onclick="selectCatalogCategory('CARGO', this)">
-            <span>👔 Cargo</span>
-            <span class="badge-count" id="catCount-CARGO">0</span>
-          </button>
-          <button type="button" class="catalog-menu-btn" onclick="selectCatalogCategory('TIPO', this)">
-            <span>💻 Tipo (Modalidad)</span>
-            <span class="badge-count" id="catCount-TIPO">0</span>
-          </button>
-          <button type="button" class="catalog-menu-btn" onclick="selectCatalogCategory('SEXO', this)">
-            <span>👤 Sexo</span>
-            <span class="badge-count" id="catCount-SEXO">0</span>
-          </button>
-          <button type="button" class="catalog-menu-btn" onclick="selectCatalogCategory('PROCESO_ISO', this)">
-            <span>📋 Proceso ISO</span>
-            <span class="badge-count" id="catCount-PROCESO_ISO">0</span>
-          </button>
-          <button type="button" class="catalog-menu-btn" onclick="selectCatalogCategory('PLANIFICACION', this)">
-            <span>🗓️ Planificación</span>
-            <span class="badge-count" id="catCount-PLANIFICACION">0</span>
-          </button>
-          <button type="button" class="catalog-menu-btn" onclick="selectCatalogCategory('HEADER_LOGOS', this)">
-            <span>🖼️ Logos Header Asistencia</span>
-            <span>⚙️</span>
-          </button>
         </div>
 
         <!-- PANEL DE EDICIÓN DE LA LISTA DESPLEGABLE SELECCIONADA -->
@@ -1123,14 +1109,24 @@
           <div class="panel-card" id="catalogEditorCard">
             <div class="panel-header">
               <h2 id="catalogEditorTitle">🏢 Configurar Lista Desplegable: Unidad</h2>
+              <button
+                type="button"
+                id="btnDeleteCustomCampo"
+                class="btn-outline"
+                style="display:none;color:#dc2626;border-color:#fca5a5;padding:5px 12px;font-size:0.78rem;"
+                onclick="deleteCurrentCustomCampo()"
+              >
+                🗑️ Eliminar este Campo
+              </button>
             </div>
             <div class="panel-body">
+              <div id="catErrorAlert" class="error-alert" style="margin-bottom:14px;"></div>
               <form id="addCatalogItemForm" style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
                 <input
                   type="text"
                   id="newCatNombre"
                   class="inp"
-                  placeholder="Escriba la nueva opción para la lista desplegable..."
+                  placeholder="Escriba la nueva opción para este campo..."
                   style="flex:1;min-width:220px;"
                   required
                 />
@@ -1141,7 +1137,7 @@
                   placeholder="Código / Sigla (Opcional)"
                   style="width:170px;"
                 />
-                <button type="submit" class="btn-primary">+ Agregar Opción</button>
+                <button type="submit" class="btn-primary" id="addOptionBtn">+ Agregar a este Campo</button>
               </form>
 
               <div class="db-table-wrap">
@@ -1264,20 +1260,66 @@
     </div>
   </div>
 
+  <!-- MODAL: CREAR NUEVO CAMPO / LISTA DESPLEGABLE EN CONFIGURACIÓN -->
+  <div class="modal-backdrop" id="newCampoModalBackdrop">
+    <div class="qr-modal" style="max-width:480px;text-align:left;">
+      <div class="qr-modal-header">
+        <strong>➕ CREAR NUEVO CAMPO O LISTA DESPLEGABLE</strong>
+        <button
+          type="button"
+          onclick="closeNewCampoModal()"
+          style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;"
+        >
+          ✕
+        </button>
+      </div>
+      <div class="qr-modal-body" style="padding:22px;">
+        <p style="font-size:0.86rem;color:var(--muted);margin-bottom:14px;">
+          Agregue una nueva lista desplegable para gestionarla y configurar sus opciones (ej. <i>Sede o Campus</i>, <i>Departamento</i>, <i>Comité</i>, etc.).
+        </p>
+        <div id="newCampoErrorBox" class="error-alert" style="margin-bottom:14px;"></div>
+        <form id="createNewCampoForm">
+          <div style="margin-bottom:14px;">
+            <label class="lbl" for="newCampoNombre">Nombre del Campo / Lista <span class="req">*</span></label>
+            <input
+              type="text"
+              id="newCampoNombre"
+              class="inp"
+              placeholder="Ej. Sede o Recinto Universitario"
+              required
+            />
+          </div>
+
+          <div style="margin-bottom:18px;">
+            <label class="lbl" for="newCampoIcono">Ícono</label>
+            <select id="newCampoIcono" class="sel">
+              <option value="📋">📋 Formulario / Lista</option>
+              <option value="📍">📍 Ubicación / Sede</option>
+              <option value="🏢">🏢 Edificio / Área</option>
+              <option value="🏷️">🏷️ Categoría / Etiqueta</option>
+              <option value="👔">👔 Puesto / Rol</option>
+              <option value="🎓">🎓 Académico / Carrera</option>
+              <option value="💼">💼 Administrativo / Laboral</option>
+              <option value="👥">👥 Grupo / Comité</option>
+              <option value="🗓️">🗓️ Calendario / Periodo</option>
+            </select>
+          </div>
+
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" class="btn-outline" onclick="closeNewCampoModal()">Cancelar</button>
+            <button type="submit" class="btn-primary" id="saveNewCampoBtn">Guardar Campo</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toastMsg"></div>
 
   <script>
-    const CATALOG_LABELS = {
-      UNIDAD: '🏢 Configurar Lista Desplegable: Unidad',
-      CARGO: '👔 Configurar Lista Desplegable: Cargo',
-      TIPO: '💻 Configurar Lista Desplegable: Tipo (Virtual, Presencial, Ambos)',
-      SEXO: '👤 Configurar Lista Desplegable: Sexo',
-      PROCESO_ISO: '📋 Configurar Lista Desplegable: Proceso ISO',
-      PLANIFICACION: '🗓️ Configurar Lista Desplegable: Planificación',
-    };
-
     let allEvents = [];
     let catalogosGrouped = {};
+    let catalogosCampos = [];
     let currentCatalogCategory = 'UNIDAD';
     let currentCalendarDate = new Date();
     let selectedCalendarDateStr = '';
@@ -1359,18 +1401,14 @@
       }
     }
 
-    // ── Cargar los 6 Catálogos Desplegables ──
+    // ── Cargar los Catálogos Desplegables y Campos ──
     async function loadCatalogos() {
       const res = await fetch('/api/catalogos');
       const data = await res.json();
       catalogosGrouped = data.grouped || {};
+      catalogosCampos = data.campos || [];
 
-      for (const cat of Object.keys(CATALOG_LABELS)) {
-        const list = catalogosGrouped[cat] || [];
-        const badge = document.getElementById(`catCount-${cat}`);
-        if (badge) badge.textContent = list.filter((i) => i.activo).length;
-      }
-
+      renderCatalogMenu();
       populateScheduleFormDropdowns();
       populateDbFilterDropdowns();
       renderCatalogEditorTable();
@@ -1906,28 +1944,168 @@
     }
 
     // ── Pestaña 4: Configuración de todas las Listas Desplegables ──
-    function selectCatalogCategory(category, btn) {
-      document.querySelectorAll('.catalog-menu-btn').forEach((b) => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
+    function renderCatalogMenu() {
+      const container = document.getElementById('catalogMenuContainer');
+      if (!container) return;
+
+      let html = `
+        <div style="background:var(--dark-gray);color:#fff;padding:12px 16px;font-weight:800;font-size:0.82rem;text-transform:uppercase;border-bottom:3px solid var(--primary);display:flex;justify-content:space-between;align-items:center;">
+          <span>Listas Desplegables</span>
+          <button type="button" class="btn-primary" style="padding:4px 9px;font-size:0.74rem;" onclick="openNewCampoModal()">
+            + Nuevo Campo
+          </button>
+        </div>
+      `;
+
+      for (const c of catalogosCampos) {
+        const list = catalogosGrouped[c.codigo] || [];
+        const isActive = currentCatalogCategory === c.codigo;
+        const activeCount = list.filter((i) => i.activo).length;
+
+        html += `
+          <div style="display:flex;align-items:center;border-bottom:1px solid #f1f5f9;background:${isActive ? 'var(--primary)' : 'var(--white)'};">
+            <button
+              type="button"
+              class="catalog-menu-btn ${isActive ? 'active' : ''}"
+              style="flex:1;border-bottom:none;background:transparent;color:${isActive ? '#fff' : 'var(--dark-gray)'};"
+              onclick="selectCatalogCategory('${c.codigo}')"
+            >
+              <span>${c.icono || '📋'} ${escapeHtml(c.nombre)}</span>
+              <span class="badge-count" style="background:${isActive ? 'rgba(0,0,0,0.25)' : 'var(--primary)'}">${activeCount}</span>
+            </button>
+          </div>
+        `;
+      }
+
+      const isLogosActive = currentCatalogCategory === 'HEADER_LOGOS';
+      html += `
+        <div style="border-top:2px solid #e2e8f0;">
+          <button
+            type="button"
+            class="catalog-menu-btn ${isLogosActive ? 'active' : ''}"
+            style="color:${isLogosActive ? '#fff' : 'var(--dark-gray)'};background:${isLogosActive ? 'var(--primary)' : 'transparent'};"
+            onclick="selectCatalogCategory('HEADER_LOGOS')"
+          >
+            <span>🖼️ Logos Header Asistencia</span>
+            <span>⚙️</span>
+          </button>
+        </div>
+      `;
+
+      container.innerHTML = html;
+    }
+
+    function selectCatalogCategory(category) {
+      currentCatalogCategory = category;
+      const errBox = document.getElementById('catErrorAlert');
+      if (errBox) errBox.style.display = 'none';
 
       if (category === 'HEADER_LOGOS') {
         document.getElementById('catalogEditorCard').style.display = 'none';
         document.getElementById('headerLogosConfigCard').style.display = 'block';
+      } else {
+        document.getElementById('headerLogosConfigCard').style.display = 'none';
+        document.getElementById('catalogEditorCard').style.display = 'block';
+
+        const cObj = (catalogosCampos || []).find((c) => c.codigo === category);
+        const title = cObj ? `${cObj.icono || '📋'} Configurar Lista Desplegable: ${cObj.nombre}` : category;
+        document.getElementById('catalogEditorTitle').textContent = title;
+        document.getElementById('newCatNombre').placeholder = `Escriba nueva opción para ${cObj ? cObj.nombre : 'este campo'}...`;
+
+        const btnDel = document.getElementById('btnDeleteCustomCampo');
+        if (btnDel) {
+          if (cObj && cObj.es_sistema === 0) {
+            btnDel.style.display = 'inline-flex';
+          } else {
+            btnDel.style.display = 'none';
+          }
+        }
+
+        renderCatalogEditorTable();
+      }
+
+      renderCatalogMenu();
+    }
+
+    function openNewCampoModal() {
+      const err = document.getElementById('newCampoErrorBox');
+      if (err) err.style.display = 'none';
+      document.getElementById('newCampoModalBackdrop').classList.add('open');
+      document.getElementById('newCampoNombre').focus();
+    }
+
+    function closeNewCampoModal() {
+      document.getElementById('newCampoModalBackdrop').classList.remove('open');
+    }
+
+    async function deleteCurrentCustomCampo() {
+      const cObj = (catalogosCampos || []).find((c) => c.codigo === currentCatalogCategory);
+      if (!cObj) return;
+      if (!confirm(`¿Desea eliminar el campo "${cObj.nombre}" y todas sus opciones configuradas?`)) return;
+
+      const res = await fetch(`/api/catalogos/campos/${encodeURIComponent(cObj.codigo)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'No se pudo eliminar el campo');
+        return;
+      }
+      showToast(`Campo "${cObj.nombre}" eliminado.`);
+      currentCatalogCategory = 'UNIDAD';
+      await loadCatalogos();
+      selectCatalogCategory('UNIDAD');
+    }
+
+    document.getElementById('createNewCampoForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('newCampoErrorBox');
+      errBox.style.display = 'none';
+
+      const nombre = document.getElementById('newCampoNombre').value.trim();
+      const icono = document.getElementById('newCampoIcono').value.trim() || '📋';
+      if (!nombre) {
+        errBox.textContent = 'Por favor ingrese el nombre del campo.';
+        errBox.style.display = 'block';
         return;
       }
 
-      document.getElementById('headerLogosConfigCard').style.display = 'none';
-      document.getElementById('catalogEditorCard').style.display = 'block';
-      currentCatalogCategory = category;
-      document.getElementById('catalogEditorTitle').textContent = CATALOG_LABELS[category] || category;
-      renderCatalogEditorTable();
-    }
+      const btn = document.getElementById('saveNewCampoBtn');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/catalogos/campos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre, icono }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errBox.textContent = data.error || 'No se pudo crear el campo.';
+          errBox.style.display = 'block';
+          btn.disabled = false;
+          return;
+        }
+
+        closeNewCampoModal();
+        document.getElementById('newCampoNombre').value = '';
+        showToast(`Campo "${data.campo.nombre}" creado exitosamente.`);
+        currentCatalogCategory = data.campo.codigo;
+        await loadCatalogos();
+        selectCatalogCategory(data.campo.codigo);
+      } catch {
+        errBox.textContent = 'Error de conexión al crear el campo.';
+        errBox.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
+    });
 
     function renderCatalogEditorTable() {
       const items = catalogosGrouped[currentCatalogCategory] || [];
       const tbody = document.getElementById('catalogItemsTableBody');
       if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">Sin opciones registradas.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted);">Sin opciones registradas para este campo aún. Agregue una arriba.</td></tr>';
         return;
       }
 
@@ -1976,28 +2154,48 @@
 
     document.getElementById('addCatalogItemForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const errBox = document.getElementById('catErrorAlert');
+      errBox.style.display = 'none';
+
       const nombre = document.getElementById('newCatNombre').value.trim();
       const codigo = document.getElementById('newCatCodigo').value.trim();
-      if (!nombre) return;
-
-      const res = await fetch('/api/catalogos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          categoria: currentCatalogCategory,
-          nombre,
-          codigo,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || 'Error al agregar opción');
+      if (!nombre) {
+        errBox.textContent = 'Por favor ingrese el nombre de la opción.';
+        errBox.style.display = 'block';
         return;
       }
-      document.getElementById('newCatNombre').value = '';
-      document.getElementById('newCatCodigo').value = '';
-      showToast('Opción agregada a la lista desplegable.');
-      loadCatalogos();
+
+      const btn = document.getElementById('addOptionBtn');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/catalogos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            categoria: currentCatalogCategory,
+            nombre,
+            codigo,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errBox.textContent = data.error || 'Error al agregar opción.';
+          errBox.style.display = 'block';
+          btn.disabled = false;
+          return;
+        }
+
+        document.getElementById('newCatNombre').value = '';
+        document.getElementById('newCatCodigo').value = '';
+        showToast('Opción agregada exitosamente.');
+        await loadCatalogos();
+      } catch {
+        errBox.textContent = 'Error de conexión al agregar la opción.';
+        errBox.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
     });
 
     async function editCatalogItem(id, currentNombre, currentCodigo) {

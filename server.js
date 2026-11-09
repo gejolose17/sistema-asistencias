@@ -8,11 +8,14 @@ const { URL } = require('node:url');
 const {
   db,
   DB_PATH,
-  CATALOG_CATEGORIES,
+  BASE_CATALOG_CAMPOS,
   computeEventStatus,
   parseUnidadesInvitadas,
   getAllConfigs,
   updateConfigs,
+  getCamposCatalogo,
+  addCampoCatalogo,
+  deleteCampoCatalogo,
   getCatalogos,
   getNowISO,
 } = require('./lib/db');
@@ -97,8 +100,25 @@ function sendJSON(res, statusCode, data) {
 
 function readJsonBody(req, maxBytes = 10 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
-    if (req.body && typeof req.body === 'object') {
-      return resolve(req.body);
+    if (req.body !== undefined && req.body !== null) {
+      if (typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
+        return resolve(req.body);
+      }
+      if (typeof req.body === 'string') {
+        try {
+          return resolve(req.body ? JSON.parse(req.body) : {});
+        } catch {
+          return reject(new Error('Formato JSON inválido.'));
+        }
+      }
+      if (Buffer.isBuffer(req.body)) {
+        try {
+          const s = req.body.toString('utf8');
+          return resolve(s ? JSON.parse(s) : {});
+        } catch {
+          return reject(new Error('Formato JSON inválido.'));
+        }
+      }
     }
     const chunks = [];
     let total = 0;
@@ -172,7 +192,14 @@ function buildEventResponse(evento, baseUrl) {
 async function requestHandler(req, res) {
   try {
     const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    const pathname = decodeURIComponent(parsedUrl.pathname);
+    let pathname = decodeURIComponent(parsedUrl.pathname);
+    if (parsedUrl.searchParams.has('__vercel_route')) {
+      pathname = decodeURIComponent(parsedUrl.searchParams.get('__vercel_route'));
+    } else if (req.headers['x-matched-path']) {
+      pathname = decodeURIComponent(req.headers['x-matched-path']);
+    } else if (req.headers['x-original-url']) {
+      pathname = decodeURIComponent(req.headers['x-original-url'].split('?')[0]);
+    }
     const method = req.method.toUpperCase();
 
     // ── 1. Server-Sent Events (SSE) ───────────────────────────────────────────
@@ -281,25 +308,56 @@ async function requestHandler(req, res) {
       return sendJSON(res, 200, { url: dataUrl, config: updated });
     }
 
-    // ── 4. Catálogos Desplegables (Unidad, Cargo, Tipo, Sexo, Proceso ISO, Planificación) ──
+    // ── 4. Catálogos Desplegables (Campos y Opciones) ─────────────────────────
     if (pathname === '/api/catalogos' && method === 'GET') {
       const soloActivos = parsedUrl.searchParams.get('activos') === '1';
       const categoria = parsedUrl.searchParams.get('categoria') || '';
       const data = getCatalogos({ soloActivos, categoria });
       return sendJSON(res, 200, {
-        categorias: CATALOG_CATEGORIES,
         ...data,
       });
     }
 
+    // Crear un Nuevo Campo / Lista Desplegable Personalizada
+    if (pathname === '/api/catalogos/campos' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const nombre = String(body.nombre || '').trim();
+      const icono = String(body.icono || '📋').trim();
+      const descripcion = String(body.descripcion || '').trim();
+      try {
+        const campo = addCampoCatalogo({ nombre, icono, descripcion });
+        broadcastSSE('catalogo_actualizado', { campo });
+        return sendJSON(res, 201, { campo });
+      } catch (err) {
+        return sendJSON(res, 400, { error: err.message || 'No se pudo crear el campo.' });
+      }
+    }
+
+    // Eliminar un Campo / Lista Desplegable Personalizada
+    const campoDeleteMatch = pathname.match(/^\/api\/catalogos\/campos\/([A-Za-z0-9_]+)$/);
+    if (campoDeleteMatch && method === 'DELETE') {
+      const codigo = campoDeleteMatch[1];
+      try {
+        deleteCampoCatalogo(codigo);
+        broadcastSSE('catalogo_actualizado', { deletedCampo: codigo });
+        return sendJSON(res, 200, { ok: true });
+      } catch (err) {
+        return sendJSON(res, 400, { error: err.message || 'No se pudo eliminar el campo.' });
+      }
+    }
+
+    // Agregar una opción a cualquier campo/lista desplegable
     if (pathname === '/api/catalogos' && method === 'POST') {
       const body = await readJsonBody(req);
       const categoria = String(body.categoria || 'UNIDAD').trim().toUpperCase();
       const nombre = String(body.nombre || '').trim();
       const codigo = String(body.codigo || '').trim().toUpperCase();
 
-      if (!CATALOG_CATEGORIES.includes(categoria)) {
-        return sendJSON(res, 400, { error: 'Categoría de catálogo no válida.' });
+      const camposDisponibles = getCamposCatalogo();
+      const validCodes = camposDisponibles.map((c) => c.codigo);
+
+      if (!validCodes.includes(categoria)) {
+        return sendJSON(res, 400, { error: `La categoría o campo "${categoria}" no es válida.` });
       }
       if (!nombre) {
         return sendJSON(res, 400, { error: 'El nombre del elemento es obligatorio.' });
@@ -319,8 +377,11 @@ async function requestHandler(req, res) {
         const item = db.prepare('SELECT * FROM catalogos WHERE id = ?').get(result.lastInsertRowid);
         broadcastSSE('catalogo_actualizado', { categoria, item });
         return sendJSON(res, 201, { item });
-      } catch {
-        return sendJSON(res, 400, { error: 'Ese elemento ya existe en esta lista desplegable.' });
+      } catch (err) {
+        if (err.message && err.message.includes('UNIQUE')) {
+          return sendJSON(res, 400, { error: `La opción "${nombre}" ya existe en este campo.` });
+        }
+        return sendJSON(res, 400, { error: err.message || 'Error al guardar elemento.' });
       }
     }
 

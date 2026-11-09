@@ -5,3 +5,5 @@ data/*.db-wal
 .env
 .env.*
 .vercel
+
+.vercel
