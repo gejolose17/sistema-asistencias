@@ -1,0 +1,12 @@
+{
+  "name": "sistema-asistencias",
+  "version": "1.0.0",
+  "description": "Sistema institucional de listas de asistencia con calendarización por fecha y hora, desactivación automática +30 min, vínculos independientes, códigos QR, firma táctil y base de datos centralizada SQLite WAL.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}

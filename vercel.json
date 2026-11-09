@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/asistencia/(.*)", "destination": "/asistencia.html" },
+    { "source": "/a/(.*)", "destination": "/asistencia.html" },
+    { "source": "/acta/(.*)", "destination": "/acta.html" }
+  ]
+}

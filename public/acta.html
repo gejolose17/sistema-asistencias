@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acta Oficial — ASISTENCIA DE PARTICIPACIÓN</title>
+  <style>
+    :root {
+      --primary: #0099a8;
+      --dark: #1f2937;
+      --white: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #e2e8f0;
+      color: var(--dark);
+      padding: clamp(10px, 2.5vw, 24px);
+    }
+
+    .toolbar {
+      max-width: 1080px;
+      margin: 0 auto 16px;
+      background: var(--dark);
+      color: var(--white);
+      padding: 12px 20px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .btn {
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      padding: 9px 16px;
+      border-radius: 7px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 0.86rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn.secondary {
+      background: #334155;
+    }
+
+    .sheet {
+      max-width: 1080px;
+      margin: 0 auto;
+      background: var(--white);
+      padding: clamp(16px, 3vw, 34px);
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+      border-top: 6px solid var(--primary);
+    }
+
+    .sheet-header {
+      display: grid;
+      grid-template-columns: 145px 1fr 145px;
+      align-items: center;
+      border: 2px solid var(--dark);
+      margin-bottom: 18px;
+    }
+
+    .sheet-logo {
+      height: 84px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      border-right: 2px solid var(--dark);
+    }
+
+    .sheet-logo.right {
+      border-right: none;
+      border-left: 2px solid var(--dark);
+    }
+
+    .sheet-logo img {
+      max-width: 100%;
+      max-height: 68px;
+      object-fit: contain;
+    }
+
+    .sheet-title-box {
+      text-align: center;
+      padding: 10px;
+    }
+
+    .sheet-title-box h1 {
+      font-size: clamp(1rem, 2.5vw, 1.35rem);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--dark);
+    }
+
+    .sheet-title-box p {
+      font-size: 0.78rem;
+      color: var(--primary);
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .meta-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 18px;
+      font-size: 0.85rem;
+    }
+
+    .meta-table th,
+    .meta-table td {
+      border: 1px solid #94a3b8;
+      padding: 8px 11px;
+      text-align: left;
+    }
+
+    .meta-table th {
+      background: #f1f5f9;
+      color: var(--dark);
+      width: 165px;
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 0.74rem;
+    }
+
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .attendance-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+
+    .attendance-table thead th {
+      background: var(--primary);
+      color: var(--white);
+      text-transform: uppercase;
+      font-size: 0.74rem;
+      letter-spacing: 0.04em;
+      padding: 9px 10px;
+      border: 1px solid #007784;
+      text-align: left;
+    }
+
+    .attendance-table tbody td {
+      border: 1px solid #cbd5e1;
+      padding: 7px 10px;
+      vertical-align: middle;
+    }
+
+    .attendance-table tbody tr:nth-child(even) {
+      background: #f8fafc;
+    }
+
+    .sig-cell {
+      text-align: center;
+      width: 185px;
+      height: 54px;
+      background: #fff;
+    }
+
+    .sig-cell img {
+      max-height: 46px;
+      max-width: 170px;
+      object-fit: contain;
+    }
+
+    @media (max-width: 640px) {
+      .sheet-header {
+        grid-template-columns: 80px 1fr 80px;
+      }
+      .sheet-logo {
+        height: 60px;
+      }
+      .sheet-logo img {
+        max-height: 46px;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+      .toolbar {
+        display: none !important;
+      }
+      .sheet {
+        box-shadow: none;
+        border-radius: 0;
+        padding: 8px;
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div>
+      <strong>Hoja Oficial de Asistencia de Participación</strong> — Formato Imprimible / PDF
+    </div>
+    <div style="display:flex;gap:8px;">
+      <a href="/" class="btn secondary">← Ir al Sistema</a>
+      <button class="btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+    </div>
+  </div>
+
+  <div class="sheet">
+    <div class="sheet-header">
+      <div class="sheet-logo">
+        <img id="leftLogo" src="/uploads/logo-left-default.png" alt="Logo Izquierdo" />
+      </div>
+      <div class="sheet-title-box">
+        <h1 id="headerTitle">ASISTENCIA DE PARTICIPACIÓN</h1>
+        <p>Registro Oficial de Asistencia y Participación Institucional</p>
+      </div>
+      <div class="sheet-logo right">
+        <img id="rightLogo" src="/uploads/logo-right-default.jpeg" alt="Logo Derecho" />
+      </div>
+    </div>
+
+    <table class="meta-table">
+      <tr>
+        <th>Tema de la Reunión</th>
+        <td colspan="3"><strong id="metaTema">Cargando...</strong></td>
+      </tr>
+      <tr>
+        <th>Fecha</th>
+        <td id="metaFecha">--</td>
+        <th>Hora</th>
+        <td id="metaHora">--</td>
+      </tr>
+      <tr>
+        <th>Dirección que Organiza</th>
+        <td id="metaDireccion">--</td>
+        <th>Lugar y Modalidad</th>
+        <td id="metaLugarTipo">--</td>
+      </tr>
+      <tr>
+        <th>Proceso ISO</th>
+        <td id="metaProceso">--</td>
+        <th>Planificación</th>
+        <td id="metaPlanificacion">--</td>
+      </tr>
+      <tr>
+        <th>Unidades Invitadas</th>
+        <td colspan="3" id="metaInvitadas">--</td>
+      </tr>
+    </table>
+
+    <div class="table-responsive">
+      <table class="attendance-table">
+        <thead>
+          <tr>
+            <th style="width:42px;text-align:center;">N°</th>
+            <th>Nombre Completo</th>
+            <th>Unidad</th>
+            <th>Cargo</th>
+            <th style="width:90px;">Sexo</th>
+            <th style="width:110px;">Fecha / Hora</th>
+            <th style="width:185px;text-align:center;">Firma</th>
+          </tr>
+        </thead>
+        <tbody id="rowsBody">
+          <tr>
+            <td colspan="7" style="text-align:center;padding:24px;">Cargando registros...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const parts = window.location.pathname.split('/').filter(Boolean);
+    const token = decodeURIComponent(parts[parts.length - 1] || '');
+
+    function escapeHtml(s) {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    async function loadSheet() {
+      const [evRes, asisRes] = await Promise.all([
+        fetch(`/api/public/evento/${encodeURIComponent(token)}`),
+        fetch(`/api/asistencias?token=${encodeURIComponent(token)}`),
+      ]);
+      const evData = await evRes.json();
+      const asisData = await asisRes.json();
+
+      if (evData.config) {
+        document.getElementById('headerTitle').textContent =
+          (evData.config.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN').toUpperCase();
+        if (evData.config.logo_izquierdo) document.getElementById('leftLogo').src = evData.config.logo_izquierdo;
+        if (evData.config.logo_derecho) document.getElementById('rightLogo').src = evData.config.logo_derecho;
+      }
+
+      if (evData.evento) {
+        const ev = evData.evento;
+        document.getElementById('metaTema').textContent = ev.tema;
+        document.getElementById('metaFecha').textContent = ev.fecha;
+        document.getElementById('metaHora').textContent = `${ev.hora} (Cierre: ${ev.hora_cierre})`;
+        document.getElementById('metaDireccion').textContent = ev.direccion_organiza || '--';
+        document.getElementById('metaLugarTipo').textContent = `${ev.lugar || 'Institucional'} (${ev.tipo || 'Presencial'})`;
+        document.getElementById('metaProceso').textContent = ev.proceso_iso || '--';
+        document.getElementById('metaPlanificacion').textContent = ev.planificacion || '--';
+        document.getElementById('metaInvitadas').textContent =
+          (ev.unidades_invitadas_lista || []).join(', ') || 'Todas las Unidades';
+      }
+
+      const list = (asisData.asistencias || []).slice().reverse();
+      const tbody = document.getElementById('rowsBody');
+      if (list.length === 0) {
+        tbody.innerHTML =
+          '<tr><td colspan="7" style="text-align:center;padding:24px;color:#64748b;">Aún no hay firmas registradas en esta lista.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list
+        .map(
+          (row, idx) => `
+        <tr>
+          <td style="text-align:center;font-weight:700;">${idx + 1}</td>
+          <td><strong>${escapeHtml(row.nombre)}</strong></td>
+          <td>${escapeHtml(row.unidad)}</td>
+          <td>${escapeHtml(row.cargo || '-')}</td>
+          <td>${escapeHtml(row.sexo || '-')}</td>
+          <td>${escapeHtml(row.fecha)}<br/><small style="color:#64748b">${escapeHtml(row.hora)}</small></td>
+          <td class="sig-cell">
+            <img src="${row.firma_base64}" alt="Firma de ${escapeHtml(row.nombre)}" />
+          </td>
+        </tr>
+      `
+        )
+        .join('');
+    }
+
+    loadSheet();
+  </script>
+</body>
+</html>

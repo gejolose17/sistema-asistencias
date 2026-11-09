@@ -1,0 +1,872 @@
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const crypto = require('node:crypto');
+const { URL } = require('node:url');
+
+const {
+  db,
+  DB_PATH,
+  CATALOG_CATEGORIES,
+  computeEventStatus,
+  parseUnidadesInvitadas,
+  getAllConfigs,
+  updateConfigs,
+  getCatalogos,
+  getNowISO,
+} = require('./lib/db');
+const { generateQRSVG, generateQRMatrix } = require('./lib/qrcode');
+
+const PORT = Number(process.env.PORT || 3050);
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const UPLOADS_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'sistema-asistencias-uploads')
+  : path.join(PUBLIC_DIR, 'uploads');
+
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+const sseClients = new Set();
+
+function broadcastSSE(eventType, payload) {
+  const data = `event: ${eventType}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const res of sseClients) {
+    try {
+      res.write(data);
+    } catch {
+      sseClients.delete(res);
+    }
+  }
+}
+
+function getNetworkIPs() {
+  const interfaces = os.networkInterfaces();
+  const ips = [];
+  for (const [name, netList] of Object.entries(interfaces)) {
+    if (!netList) continue;
+    for (const net of netList) {
+      if (net.family === 'IPv4' && !net.internal) {
+        ips.push({ name, address: net.address });
+      }
+    }
+  }
+  return ips;
+}
+
+function getEffectiveBaseUrl(req) {
+  const configs = getAllConfigs();
+  if (configs.base_url && configs.base_url.trim() !== '') {
+    return configs.base_url.trim().replace(/\/+$/, '');
+  }
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const forwardedHost = req.headers['x-forwarded-host'] || req.headers.host;
+  if (process.env.VERCEL || (forwardedHost && !forwardedHost.includes('localhost') && !forwardedHost.startsWith('127.'))) {
+    const proto = forwardedProto || 'https';
+    return `${proto}://${forwardedHost}`;
+  }
+  const ips = getNetworkIPs();
+  if (ips.length > 0) {
+    return `http://${ips[0].address}:${PORT}`;
+  }
+  const host = req.headers.host || `localhost:${PORT}`;
+  return `http://${host}`;
+}
+
+function slugifyToken(text) {
+  const base = String(text || 'reunion')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 22);
+  const rand = crypto.randomBytes(2).toString('hex');
+  return `${base || 'evento'}-${rand}`;
+}
+
+function sendJSON(res, statusCode, data) {
+  const body = JSON.stringify(data);
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+  });
+  res.end(body);
+}
+
+function readJsonBody(req, maxBytes = 10 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    if (req.body && typeof req.body === 'object') {
+      return resolve(req.body);
+    }
+    const chunks = [];
+    let total = 0;
+    req.on('data', (chunk) => {
+      total += chunk.length;
+      if (total > maxBytes) {
+        reject(new Error('El tamaño de los datos enviados excede el límite permitido (10MB).'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      try {
+        const raw = Buffer.concat(chunks).toString('utf8');
+        resolve(raw ? JSON.parse(raw) : {});
+      } catch {
+        reject(new Error('Formato JSON inválido.'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.ico': 'image/x-icon',
+};
+
+function serveStaticFile(res, filePath) {
+  fs.stat(filePath, (err, stats) => {
+    if (err || !stats.isFile()) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Archivo no encontrado');
+      return;
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
+    });
+    fs.createReadStream(filePath).pipe(res);
+  });
+}
+
+function buildEventResponse(evento, baseUrl) {
+  const status = computeEventStatus(evento);
+  const countRow = db
+    .prepare('SELECT COUNT(*) as total FROM asistencias WHERE evento_id = ?')
+    .get(evento.id);
+  const link = `${baseUrl}/asistencia/${encodeURIComponent(evento.token)}`;
+  return {
+    ...status,
+    total_asistencias: countRow ? countRow.total : 0,
+    vinculo: link,
+    qr_svg_url: `/api/qr/${encodeURIComponent(evento.token)}?url=${encodeURIComponent(link)}`,
+    acta_url: `/acta/${encodeURIComponent(evento.token)}`,
+  };
+}
+
+async function requestHandler(req, res) {
+  try {
+    const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const pathname = decodeURIComponent(parsedUrl.pathname);
+    const method = req.method.toUpperCase();
+
+    // ── 1. Server-Sent Events (SSE) ───────────────────────────────────────────
+    if (pathname === '/api/stream' && method === 'GET') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      });
+      res.write(`event: connected\ndata: ${JSON.stringify({ time: getNowISO() })}\n\n`);
+      sseClients.add(res);
+      req.on('close', () => sseClients.delete(res));
+      return;
+    }
+
+    // ── 2. Información del Sistema y Recursos ────────────────────────────────
+    if (pathname === '/api/system-info' && method === 'GET') {
+      const cpus = os.cpus();
+      const totalMem = os.totalmem();
+      const freeMem = os.freemem();
+      let dbSizeBytes = 0;
+      try {
+        dbSizeBytes = fs.statSync(DB_PATH).size;
+      } catch {
+        dbSizeBytes = 0;
+      }
+      const ips = getNetworkIPs();
+      const baseUrl = getEffectiveBaseUrl(req);
+      const totalEventos = db.prepare('SELECT COUNT(*) as c FROM eventos').get().c;
+      const totalAsistencias = db.prepare('SELECT COUNT(*) as c FROM asistencias').get().c;
+      const totalUnidades = db
+        .prepare("SELECT COUNT(*) as c FROM catalogos WHERE categoria = 'UNIDAD' AND activo = 1")
+        .get().c;
+
+      return sendJSON(res, 200, {
+        hostname: os.hostname(),
+        platform: `${os.type()} ${os.release()} (${os.arch()})`,
+        nodeVersion: process.version,
+        cpuModel: cpus[0] ? cpus[0].model.trim() : 'CPU Multinúcleo',
+        cpuCores: cpus.length,
+        memoryTotalMB: Math.round(totalMem / (1024 * 1024)),
+        memoryUsedMB: Math.round((totalMem - freeMem) / (1024 * 1024)),
+        memoryPercent: Math.round(((totalMem - freeMem) / totalMem) * 100),
+        dbSizeKB: Math.round((dbSizeBytes / 1024) * 10) / 10,
+        uptimeSeconds: Math.round(process.uptime()),
+        port: PORT,
+        networkIPs: ips,
+        effectiveBaseUrl: baseUrl,
+        stats: {
+          totalEventos,
+          totalAsistencias,
+          totalUnidades,
+        },
+      });
+    }
+
+    // ── 3. Configuración Global y Logos de las Listas de Asistencia ──────────
+    if (pathname === '/api/config' && method === 'GET') {
+      const configs = getAllConfigs();
+      return sendJSON(res, 200, {
+        ...configs,
+        effectiveBaseUrl: getEffectiveBaseUrl(req),
+        networkIPs: getNetworkIPs(),
+        port: PORT,
+      });
+    }
+
+    if (pathname === '/api/config' && method === 'PUT') {
+      const body = await readJsonBody(req);
+      const allowedKeys = [
+        'titulo_header',
+        'subtitulo_header',
+        'logo_izquierdo',
+        'logo_derecho',
+        'mensaje_gracias_titulo',
+        'mensaje_gracias_cuerpo',
+        'minutos_expiracion',
+        'base_url',
+      ];
+      const updates = {};
+      for (const k of allowedKeys) {
+        if (body[k] !== undefined) {
+          updates[k] = body[k];
+        }
+      }
+      const updated = updateConfigs(updates);
+      broadcastSSE('config_actualizada', updated);
+      return sendJSON(res, 200, {
+        ...updated,
+        effectiveBaseUrl: getEffectiveBaseUrl(req),
+      });
+    }
+
+    // Subida de Logo Izquierdo o Derecho (guarda tanto DataURL en config como archivo para compatibilidad local + Vercel)
+    if (pathname === '/api/upload-logo' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const { side, dataUrl } = body;
+      if (!['left', 'right'].includes(side) || !dataUrl) {
+        return sendJSON(res, 400, { error: 'Parámetros de logo inválidos.' });
+      }
+
+      // Guardamos el DataURL directamente en config para que persista incluso en entornos serverless
+      const configKey = side === 'left' ? 'logo_izquierdo' : 'logo_derecho';
+      const updated = updateConfigs({ [configKey]: dataUrl });
+      broadcastSSE('config_actualizada', updated);
+      return sendJSON(res, 200, { url: dataUrl, config: updated });
+    }
+
+    // ── 4. Catálogos Desplegables (Unidad, Cargo, Tipo, Sexo, Proceso ISO, Planificación) ──
+    if (pathname === '/api/catalogos' && method === 'GET') {
+      const soloActivos = parsedUrl.searchParams.get('activos') === '1';
+      const categoria = parsedUrl.searchParams.get('categoria') || '';
+      const data = getCatalogos({ soloActivos, categoria });
+      return sendJSON(res, 200, {
+        categorias: CATALOG_CATEGORIES,
+        ...data,
+      });
+    }
+
+    if (pathname === '/api/catalogos' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const categoria = String(body.categoria || 'UNIDAD').trim().toUpperCase();
+      const nombre = String(body.nombre || '').trim();
+      const codigo = String(body.codigo || '').trim().toUpperCase();
+
+      if (!CATALOG_CATEGORIES.includes(categoria)) {
+        return sendJSON(res, 400, { error: 'Categoría de catálogo no válida.' });
+      }
+      if (!nombre) {
+        return sendJSON(res, 400, { error: 'El nombre del elemento es obligatorio.' });
+      }
+
+      try {
+        const maxRow = db
+          .prepare('SELECT MAX(orden) as m FROM catalogos WHERE categoria = ?')
+          .get(categoria);
+        const nextOrden = (maxRow && maxRow.m ? maxRow.m : 0) + 1;
+        const result = db
+          .prepare(`
+            INSERT INTO catalogos (categoria, nombre, codigo, activo, orden, creado_en)
+            VALUES (?, ?, ?, 1, ?, ?)
+          `)
+          .run(categoria, nombre, codigo, nextOrden, getNowISO());
+        const item = db.prepare('SELECT * FROM catalogos WHERE id = ?').get(result.lastInsertRowid);
+        broadcastSSE('catalogo_actualizado', { categoria, item });
+        return sendJSON(res, 201, { item });
+      } catch {
+        return sendJSON(res, 400, { error: 'Ese elemento ya existe en esta lista desplegable.' });
+      }
+    }
+
+    const catMatch = pathname.match(/^\/api\/catalogos\/(\d+)$/);
+    if (catMatch) {
+      const id = Number(catMatch[1]);
+      const existing = db.prepare('SELECT * FROM catalogos WHERE id = ?').get(id);
+      if (!existing) return sendJSON(res, 404, { error: 'Elemento no encontrado.' });
+
+      if (method === 'PUT') {
+        const body = await readJsonBody(req);
+        const nombre = body.nombre !== undefined ? String(body.nombre).trim() : existing.nombre;
+        const codigo = body.codigo !== undefined ? String(body.codigo).trim().toUpperCase() : existing.codigo;
+        const activo = body.activo !== undefined ? (body.activo ? 1 : 0) : existing.activo;
+
+        db.prepare('UPDATE catalogos SET nombre = ?, codigo = ?, activo = ? WHERE id = ?').run(
+          nombre,
+          codigo,
+          activo,
+          id
+        );
+        const updated = db.prepare('SELECT * FROM catalogos WHERE id = ?').get(id);
+        broadcastSSE('catalogo_actualizado', { categoria: updated.categoria, item: updated });
+        return sendJSON(res, 200, { item: updated });
+      }
+
+      if (method === 'DELETE') {
+        db.prepare('DELETE FROM catalogos WHERE id = ?').run(id);
+        broadcastSSE('catalogo_actualizado', { categoria: existing.categoria });
+        return sendJSON(res, 200, { ok: true });
+      }
+    }
+
+    // ── 5. Gestión de Reuniones / Eventos Calendarizados ─────────────────────
+    if (pathname === '/api/eventos' && method === 'GET') {
+      const baseUrl = getEffectiveBaseUrl(req);
+      const rows = db.prepare('SELECT * FROM eventos ORDER BY fecha DESC, hora DESC').all();
+      const eventos = rows.map((ev) => buildEventResponse(ev, baseUrl));
+      return sendJSON(res, 200, { eventos, baseUrl });
+    }
+
+    if (pathname === '/api/eventos' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const tema = String(body.tema || '').trim();
+      const fecha = String(body.fecha || '').trim();
+      const hora = String(body.hora || '').trim();
+      const direccionOrganiza = String(body.direccion_organiza || '').trim();
+      const unidadesInvitadasArr = parseUnidadesInvitadas(body.unidades_invitadas);
+      const lugar = String(body.lugar || '').trim();
+      const tipo = String(body.tipo || 'Presencial').trim();
+      const procesoIso = String(body.proceso_iso || '').trim();
+      const planificacion = String(body.planificacion || '').trim();
+      const duracionVentana = Number(body.duracion_ventana_min || 30);
+
+      if (!tema || !fecha || !hora) {
+        return sendJSON(res, 400, {
+          error: 'Los campos Fecha, Hora y Tema son obligatorios para programar la reunión.',
+        });
+      }
+      if (!direccionOrganiza) {
+        return sendJSON(res, 400, {
+          error: 'Por favor seleccione la Dirección que Organiza.',
+        });
+      }
+      if (unidadesInvitadasArr.length === 0) {
+        return sendJSON(res, 400, {
+          error: 'Por favor seleccione al menos 1 Unidad Invitada.',
+        });
+      }
+
+      const id = crypto.randomUUID();
+      let token = slugifyToken(tema);
+      while (db.prepare('SELECT 1 FROM eventos WHERE token = ?').get(token)) {
+        token = slugifyToken(tema);
+      }
+
+      db.prepare(`
+        INSERT INTO eventos (
+          id, token, tema, fecha, hora, direccion_organiza, unidades_invitadas,
+          lugar, tipo, proceso_iso, planificacion, organizador, descripcion,
+          duracion_ventana_min, estado_manual, creado_en
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AUTO', ?)
+      `).run(
+        id,
+        token,
+        tema,
+        fecha,
+        hora,
+        direccionOrganiza,
+        JSON.stringify(unidadesInvitadasArr),
+        lugar,
+        tipo,
+        procesoIso,
+        planificacion,
+        direccionOrganiza,
+        '',
+        duracionVentana,
+        getNowISO()
+      );
+
+      const creado = db.prepare('SELECT * FROM eventos WHERE id = ?').get(id);
+      const baseUrl = getEffectiveBaseUrl(req);
+      const enriched = buildEventResponse(creado, baseUrl);
+      broadcastSSE('evento_actualizado', enriched);
+      return sendJSON(res, 201, { evento: enriched });
+    }
+
+    const eventoIdMatch = pathname.match(/^\/api\/eventos\/([a-f0-9-]+)$/i);
+    if (eventoIdMatch) {
+      const eventoId = eventoIdMatch[1];
+      const existing = db.prepare('SELECT * FROM eventos WHERE id = ?').get(eventoId);
+      if (!existing) {
+        return sendJSON(res, 404, { error: 'Evento no encontrado.' });
+      }
+
+      if (method === 'PUT') {
+        const body = await readJsonBody(req);
+        const tema = body.tema !== undefined ? String(body.tema).trim() : existing.tema;
+        const fecha = body.fecha !== undefined ? String(body.fecha).trim() : existing.fecha;
+        const hora = body.hora !== undefined ? String(body.hora).trim() : existing.hora;
+        const direccionOrganiza =
+          body.direccion_organiza !== undefined
+            ? String(body.direccion_organiza).trim()
+            : existing.direccion_organiza;
+        const unidadesInvitadas =
+          body.unidades_invitadas !== undefined
+            ? JSON.stringify(parseUnidadesInvitadas(body.unidades_invitadas))
+            : existing.unidades_invitadas;
+        const lugar = body.lugar !== undefined ? String(body.lugar).trim() : existing.lugar;
+        const tipo = body.tipo !== undefined ? String(body.tipo).trim() : existing.tipo;
+        const procesoIso =
+          body.proceso_iso !== undefined ? String(body.proceso_iso).trim() : existing.proceso_iso;
+        const planificacion =
+          body.planificacion !== undefined ? String(body.planificacion).trim() : existing.planificacion;
+        const duracionVentana =
+          body.duracion_ventana_min !== undefined
+            ? Number(body.duracion_ventana_min)
+            : existing.duracion_ventana_min;
+        const estadoManual =
+          body.estado_manual !== undefined ? String(body.estado_manual) : existing.estado_manual;
+
+        db.prepare(`
+          UPDATE eventos
+          SET tema = ?, fecha = ?, hora = ?, direccion_organiza = ?, unidades_invitadas = ?,
+              lugar = ?, tipo = ?, proceso_iso = ?, planificacion = ?,
+              duracion_ventana_min = ?, estado_manual = ?
+          WHERE id = ?
+        `).run(
+          tema,
+          fecha,
+          hora,
+          direccionOrganiza,
+          unidadesInvitadas,
+          lugar,
+          tipo,
+          procesoIso,
+          planificacion,
+          duracionVentana,
+          estadoManual,
+          eventoId
+        );
+
+        db.prepare('UPDATE asistencias SET tema = ?, fecha = ?, hora = ? WHERE evento_id = ?').run(
+          tema,
+          fecha,
+          hora,
+          eventoId
+        );
+
+        const actualizado = db.prepare('SELECT * FROM eventos WHERE id = ?').get(eventoId);
+        const enriched = buildEventResponse(actualizado, getEffectiveBaseUrl(req));
+        broadcastSSE('evento_actualizado', enriched);
+        return sendJSON(res, 200, { evento: enriched });
+      }
+
+      if (method === 'DELETE') {
+        db.prepare('DELETE FROM eventos WHERE id = ?').run(eventoId);
+        broadcastSSE('evento_eliminado', { id: eventoId });
+        return sendJSON(res, 200, { ok: true });
+      }
+    }
+
+    // ── 6. Generador de Código QR por cada Lista ─────────────────────────────
+    const qrMatch = pathname.match(/^\/api\/qr\/([^/]+)$/);
+    if (qrMatch && method === 'GET') {
+      const token = qrMatch[1];
+      const evento = db.prepare('SELECT * FROM eventos WHERE token = ? OR id = ?').get(token, token);
+      if (!evento) {
+        return sendJSON(res, 404, { error: 'Lista no encontrada para generar QR.' });
+      }
+      const baseUrl = getEffectiveBaseUrl(req);
+      const customUrl = parsedUrl.searchParams.get('url');
+      const targetUrl = customUrl || `${baseUrl}/asistencia/${encodeURIComponent(evento.token)}`;
+      const format = parsedUrl.searchParams.get('format') || 'svg';
+
+      if (format === 'json') {
+        const matrix = generateQRMatrix(targetUrl);
+        return sendJSON(res, 200, { url: targetUrl, token: evento.token, matrix });
+      }
+
+      const svg = generateQRSVG(targetUrl, {
+        sizePx: Number(parsedUrl.searchParams.get('size') || 320),
+        darkColor: '#1f2937',
+        lightColor: '#ffffff',
+        margin: 3,
+      });
+      res.writeHead(200, {
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(svg);
+      return;
+    }
+
+    // ── 7. API Pública para el Formulario Individual de Asistencia ───────────
+    const pubEventoMatch = pathname.match(/^\/api\/public\/evento\/([^/]+)$/);
+    if (pubEventoMatch && method === 'GET') {
+      const token = pubEventoMatch[1];
+      const evento = db.prepare('SELECT * FROM eventos WHERE token = ? OR id = ?').get(token, token);
+      if (!evento) {
+        return sendJSON(res, 404, { error: 'El vínculo de esta lista de asistencia no existe o fue eliminado.' });
+      }
+
+      const status = buildEventResponse(evento, getEffectiveBaseUrl(req));
+      const configs = getAllConfigs();
+      const { grouped } = getCatalogos({ soloActivos: true });
+
+      return sendJSON(res, 200, {
+        evento: status,
+        unidades: grouped.UNIDAD || [],
+        catalogos: grouped,
+        config: {
+          titulo_header: configs.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN',
+          subtitulo_header: configs.subtitulo_header || '',
+          logo_izquierdo: evento.logo_izquierdo_custom || configs.logo_izquierdo,
+          logo_derecho: evento.logo_derecho_custom || configs.logo_derecho,
+          mensaje_gracias_titulo: configs.mensaje_gracias_titulo || '¡Gracias por llenar esta asistencia!',
+          mensaje_gracias_cuerpo:
+            configs.mensaje_gracias_cuerpo ||
+            'Su participación y firma han sido registradas correctamente.',
+        },
+        serverTime: getNowISO(),
+      });
+    }
+
+    const pubSubmitMatch = pathname.match(/^\/api\/public\/asistencia\/([^/]+)$/);
+    if (pubSubmitMatch && method === 'POST') {
+      const token = pubSubmitMatch[1];
+      const evento = db.prepare('SELECT * FROM eventos WHERE token = ? OR id = ?').get(token, token);
+      if (!evento) {
+        return sendJSON(res, 404, { error: 'Lista de asistencia no encontrada.' });
+      }
+
+      const status = computeEventStatus(evento);
+      if (!status.activa) {
+        return sendJSON(res, 403, {
+          error:
+            'Lista desactivada: Han transcurrido más de 30 minutos desde la fecha y hora programada para esta reunión.',
+          evento: status,
+        });
+      }
+
+      const body = await readJsonBody(req);
+      const unidad = String(body.unidad || '').trim();
+      const cargo = String(body.cargo || '').trim();
+      const sexo = String(body.sexo || '').trim();
+      const nombre = String(body.nombre || '').trim();
+      const firmaBase64 = String(body.firma_base64 || '').trim();
+
+      if (!unidad) {
+        return sendJSON(res, 400, { error: 'Por favor seleccione su Unidad de la lista desplegable.' });
+      }
+      if (!nombre || nombre.length < 2) {
+        return sendJSON(res, 400, { error: 'Por favor ingrese su Nombre completo.' });
+      }
+      if (!firmaBase64 || !firmaBase64.startsWith('data:image/')) {
+        return sendJSON(res, 400, {
+          error: 'Por favor realice su firma en el recuadro antes de guardar.',
+        });
+      }
+
+      const ip =
+        (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+        req.socket.remoteAddress ||
+        '';
+      const userAgent = String(req.headers['user-agent'] || '').slice(0, 250);
+      const registradoEn = getNowISO();
+
+      const result = db
+        .prepare(`
+          INSERT INTO asistencias (
+            evento_id, unidad, cargo, sexo, tema, nombre, fecha, hora, firma_base64, ip_dispositivo, user_agent, registrado_en
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          evento.id,
+          unidad,
+          cargo,
+          sexo,
+          evento.tema,
+          nombre,
+          evento.fecha,
+          evento.hora,
+          firmaBase64,
+          ip,
+          userAgent,
+          registradoEn
+        );
+
+      const nuevoRegistro = db
+        .prepare('SELECT * FROM asistencias WHERE id = ?')
+        .get(result.lastInsertRowid);
+
+      broadcastSSE('nueva_asistencia', {
+        asistencia: nuevoRegistro,
+        evento_id: evento.id,
+        token: evento.token,
+      });
+
+      const configs = getAllConfigs();
+      return sendJSON(res, 201, {
+        ok: true,
+        mensaje_titulo: configs.mensaje_gracias_titulo || '¡Gracias por llenar esta asistencia!',
+        mensaje_cuerpo:
+          configs.mensaje_gracias_cuerpo ||
+          'Su asistencia ha sido guardada exitosamente en la base de datos.',
+        registro: {
+          id: nuevoRegistro.id,
+          unidad: nuevoRegistro.unidad,
+          cargo: nuevoRegistro.cargo,
+          sexo: nuevoRegistro.sexo,
+          tema: nuevoRegistro.tema,
+          nombre: nuevoRegistro.nombre,
+          fecha: nuevoRegistro.fecha,
+          hora: nuevoRegistro.hora,
+          registrado_en: nuevoRegistro.registrado_en,
+        },
+      });
+    }
+
+    // ── 8. Base de Datos General Centralizada ────────────────────────────────
+    if (pathname === '/api/asistencias' && method === 'GET') {
+      const eventoId = parsedUrl.searchParams.get('evento_id') || '';
+      const token = parsedUrl.searchParams.get('token') || '';
+      const unidad = parsedUrl.searchParams.get('unidad') || '';
+      const cargo = parsedUrl.searchParams.get('cargo') || '';
+      const sexo = parsedUrl.searchParams.get('sexo') || '';
+      const procesoIso = parsedUrl.searchParams.get('proceso_iso') || '';
+      const fecha = parsedUrl.searchParams.get('fecha') || '';
+      const q = (parsedUrl.searchParams.get('q') || '').trim();
+
+      let whereClauses = [];
+      let params = [];
+
+      if (eventoId) {
+        whereClauses.push('a.evento_id = ?');
+        params.push(eventoId);
+      }
+      if (token) {
+        whereClauses.push('(e.token = ? OR e.id = ?)');
+        params.push(token, token);
+      }
+      if (unidad) {
+        whereClauses.push('a.unidad = ?');
+        params.push(unidad);
+      }
+      if (cargo) {
+        whereClauses.push('a.cargo = ?');
+        params.push(cargo);
+      }
+      if (sexo) {
+        whereClauses.push('a.sexo = ?');
+        params.push(sexo);
+      }
+      if (procesoIso) {
+        whereClauses.push('e.proceso_iso = ?');
+        params.push(procesoIso);
+      }
+      if (fecha) {
+        whereClauses.push('a.fecha = ?');
+        params.push(fecha);
+      }
+      if (q) {
+        whereClauses.push('(a.nombre LIKE ? OR a.tema LIKE ? OR a.unidad LIKE ? OR a.cargo LIKE ?)');
+        const like = `%${q}%`;
+        params.push(like, like, like, like);
+      }
+
+      const whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+      const rows = db
+        .prepare(`
+          SELECT
+            a.*,
+            e.token as evento_token,
+            e.lugar as evento_lugar,
+            e.tipo as evento_tipo,
+            e.direccion_organiza as evento_direccion_organiza,
+            e.proceso_iso as evento_proceso_iso,
+            e.planificacion as evento_planificacion
+          FROM asistencias a
+          LEFT JOIN eventos e ON e.id = a.evento_id
+          ${whereSQL}
+          ORDER BY a.id DESC
+        `)
+        .all(...params);
+
+      return sendJSON(res, 200, {
+        total: rows.length,
+        asistencias: rows,
+      });
+    }
+
+    const deleteAsistenciaMatch = pathname.match(/^\/api\/asistencias\/(\d+)$/);
+    if (deleteAsistenciaMatch && method === 'DELETE') {
+      const id = Number(deleteAsistenciaMatch[1]);
+      db.prepare('DELETE FROM asistencias WHERE id = ?').run(id);
+      broadcastSSE('asistencia_eliminada', { id });
+      return sendJSON(res, 200, { ok: true });
+    }
+
+    // ── 9. Exportación CSV / Excel de Base de Datos General ──────────────────
+    if (pathname === '/api/export/csv' && method === 'GET') {
+      const eventoId = parsedUrl.searchParams.get('evento_id') || '';
+      const unidad = parsedUrl.searchParams.get('unidad') || '';
+      let where = [];
+      let params = [];
+      if (eventoId) {
+        where.push('a.evento_id = ?');
+        params.push(eventoId);
+      }
+      if (unidad) {
+        where.push('a.unidad = ?');
+        params.push(unidad);
+      }
+      const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
+      const rows = db
+        .prepare(`
+          SELECT
+            a.id, a.fecha, a.hora, a.tema,
+            e.direccion_organiza, e.lugar, e.tipo, e.proceso_iso, e.planificacion,
+            a.unidad, a.cargo, a.sexo, a.nombre, a.registrado_en, a.ip_dispositivo
+          FROM asistencias a
+          LEFT JOIN eventos e ON e.id = a.evento_id
+          ${whereSQL}
+          ORDER BY a.fecha DESC, a.hora DESC, a.id ASC
+        `)
+        .all(...params);
+
+      const escapeCSV = (val) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+
+      const headers = [
+        'Folio',
+        'Fecha Reunión',
+        'Hora Reunión',
+        'Tema de Reunión',
+        'Dirección que Organiza',
+        'Lugar',
+        'Modalidad / Tipo',
+        'Proceso ISO',
+        'Planificación',
+        'Unidad del Participante',
+        'Cargo',
+        'Sexo',
+        'Nombre del Participante',
+        'Fecha/Hora Exacta Firma',
+        'IP Dispositivo',
+      ];
+
+      const csvLines = [headers.map(escapeCSV).join(',')];
+      for (const r of rows) {
+        csvLines.push(
+          [
+            r.id,
+            r.fecha,
+            r.hora,
+            r.tema,
+            r.direccion_organiza || '',
+            r.lugar || '',
+            r.tipo || '',
+            r.proceso_iso || '',
+            r.planificacion || '',
+            r.unidad,
+            r.cargo || '',
+            r.sexo || '',
+            r.nombre,
+            r.registrado_en,
+            r.ip_dispositivo || '',
+          ]
+            .map(escapeCSV)
+            .join(',')
+        );
+      }
+
+      const csvContent = '\uFEFF' + csvLines.join('\r\n');
+      const filename = eventoId
+        ? `asistencia-evento-${eventoId.slice(0, 8)}.csv`
+        : 'base-datos-asistencias-general.csv';
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      });
+      res.end(csvContent);
+      return;
+    }
+
+    // ── 10. Rutas de Vistas Web ──────────────────────────────────────────────
+    if ((pathname.startsWith('/asistencia/') || pathname.startsWith('/a/')) && method === 'GET') {
+      return serveStaticFile(res, path.join(PUBLIC_DIR, 'asistencia.html'));
+    }
+
+    if (pathname.startsWith('/acta/') && method === 'GET') {
+      return serveStaticFile(res, path.join(PUBLIC_DIR, 'acta.html'));
+    }
+
+    if (pathname === '/' || pathname === '/admin') {
+      return serveStaticFile(res, path.join(PUBLIC_DIR, 'index.html'));
+    }
+
+    const safePath = path.normalize(pathname).replace(/^(\.\.[/\\])+/, '');
+    const filePath = path.join(PUBLIC_DIR, safePath);
+    if (filePath.startsWith(PUBLIC_DIR)) {
+      return serveStaticFile(res, filePath);
+    }
+
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Ruta no encontrada');
+  } catch (err) {
+    console.error('Error en el servidor:', err);
+    sendJSON(res, 500, { error: err.message || 'Error interno del servidor' });
+  }
+}
+
+const server = http.createServer(requestHandler);
+
+if (require.main === module) {
+  server.listen(PORT, '0.0.0.0', () => {
+    const ips = getNetworkIPs();
+    console.log('==================================================================');
+    console.log('  SISTEMA DE LISTAS DE ASISTENCIA Y PARTICIPACIÓN (ACTIVO)');
+    console.log('==================================================================');
+    console.log(`  Panel Local:       http://localhost:${PORT}`);
+    for (const ip of ips) {
+      console.log(`  Red Local (${ip.name}): http://${ip.address}:${PORT}`);
+    }
+    console.log('==================================================================');
+  });
+}
+
+module.exports = requestHandler;

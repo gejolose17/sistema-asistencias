@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>ASISTENCIA DE PARTICIPACIÓN</title>
+  <style>
+    :root {
+      --primary: #0099a8;
+      --primary-dark: #007784;
+      --primary-light: #e6f6f8;
+      --dark-gray: #1f2937;
+      --dark-gray-2: #334155;
+      --mid-gray: #64748b;
+      --light-gray: #f1f5f9;
+      --border: #cbd5e1;
+      --white: #ffffff;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      background: linear-gradient(145deg, #1f2937 0%, #111827 65%, #004d56 100%);
+      color: var(--dark-gray);
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: clamp(8px, 2.5vw, 24px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    .form-shell {
+      width: 100%;
+      max-width: 820px;
+      background: var(--white);
+      border-radius: clamp(12px, 2vw, 18px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      overflow: hidden;
+      border-top: 7px solid var(--primary);
+    }
+
+    /* ── HEADER EXCLUSIVO DE LA LISTA DE ASISTENCIA (RESPONSIVE MÓVIL / TABLET) ── */
+    .inst-header {
+      display: grid;
+      grid-template-columns: 135px 1fr 135px;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 22px;
+      background: var(--white);
+      border-bottom: 3px solid var(--primary);
+      position: relative;
+    }
+
+    .logo-slot {
+      position: relative;
+      height: 74px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      border: 1px dashed transparent;
+      transition: all 0.2s ease;
+      overflow: hidden;
+      background: #fafafa;
+      padding: 6px;
+    }
+
+    .logo-slot:hover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .logo-slot img {
+      max-width: 100%;
+      max-height: 62px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .logo-edit-btn {
+      position: absolute;
+      bottom: 3px;
+      right: 3px;
+      background: rgba(31, 41, 55, 0.86);
+      color: var(--white);
+      border: none;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 6px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .logo-slot:hover .logo-edit-btn,
+    .edit-mode-on .logo-edit-btn {
+      opacity: 1;
+    }
+
+    .header-center {
+      text-align: center;
+      padding: 0 4px;
+    }
+
+    .header-title {
+      font-size: clamp(1rem, 2.8vw, 1.42rem);
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--dark-gray);
+      line-height: 1.2;
+    }
+
+    .header-accent-line {
+      width: 64px;
+      height: 4px;
+      background: var(--primary);
+      margin: 7px auto 5px;
+      border-radius: 2px;
+    }
+
+    .header-subtitle {
+      font-size: clamp(0.68rem, 1.8vw, 0.8rem);
+      color: var(--mid-gray);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── BARRA DE ESTADO Y CUENTA REGRESIVA (+30 MINUTOS) ── */
+    .status-strip {
+      background: var(--dark-gray);
+      color: var(--white);
+      padding: 11px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 0.84rem;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: var(--primary);
+      color: var(--white);
+      font-size: 0.76rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .status-badge.expired {
+      background: var(--danger);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fff;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.25); }
+    }
+
+    .timer-pill {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: rgba(255, 255, 255, 0.12);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-weight: 700;
+      color: #5eead4;
+      border: 1px solid rgba(0, 153, 168, 0.5);
+    }
+
+    /* ── CUERPO DEL FORMULARIO ── */
+    .form-body {
+      padding: clamp(16px, 3.5vw, 28px);
+    }
+
+    .predefined-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      background: var(--light-gray);
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--primary);
+      border-radius: 12px;
+      padding: 15px 16px;
+      margin-bottom: 20px;
+    }
+
+    .predefined-item.full {
+      grid-column: 1 / -1;
+    }
+
+    .meeting-chips {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed #cbd5e1;
+    }
+
+    .meta-chip {
+      background: var(--white);
+      border: 1px solid #cbd5e1;
+      color: var(--dark-gray-2);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+
+    .meta-chip b {
+      color: var(--primary-dark);
+    }
+
+    .field-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--dark-gray-2);
+      margin-bottom: 6px;
+    }
+
+    .field-label .auto-tag {
+      display: inline-block;
+      background: var(--dark-gray);
+      color: var(--white);
+      font-size: 0.64rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .field-label .req {
+      color: var(--primary);
+      margin-left: 3px;
+    }
+
+    .readonly-box {
+      width: 100%;
+      padding: 10px 13px;
+      background: var(--white);
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      color: var(--dark-gray);
+      font-weight: 700;
+      font-size: 0.95rem;
+      word-break: break-word;
+    }
+
+    .participant-fields-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .participant-fields-grid .full-span {
+      grid-column: 1 / -1;
+    }
+
+    /* 16px evita auto-zoom en iOS Safari al tocar campos en móvil */
+    .input-control,
+    .select-control {
+      width: 100%;
+      min-height: 48px;
+      padding: 11px 14px;
+      font-size: 16px;
+      color: var(--dark-gray);
+      background: var(--white);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      font-family: inherit;
+    }
+
+    .input-control:focus,
+    .select-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(0, 153, 168, 0.16);
+    }
+
+    /* ── LIENZO DE FIRMA TÁCTIL (DEDO / TELÉFONO / TABLETA) ── */
+    .signature-container {
+      border: 2px solid var(--dark-gray);
+      border-radius: 12px;
+      background: var(--white);
+      overflow: hidden;
+      position: relative;
+      margin-bottom: 18px;
+    }
+
+    .signature-container.active-signing {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(0, 153, 168, 0.18);
+    }
+
+    .signature-toolbar {
+      background: var(--dark-gray);
+      color: var(--white);
+      padding: 9px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.8rem;
+    }
+
+    .signature-toolbar span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+    }
+
+    .btn-clear-sig {
+      background: rgba(255, 255, 255, 0.15);
+      color: var(--white);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 6px 13px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      height: clamp(185px, 28vh, 230px);
+      background:
+        linear-gradient(to bottom, transparent 78%, rgba(0, 153, 168, 0.25) 78%, rgba(0, 153, 168, 0.25) 79%, transparent 79%),
+        #ffffff;
+    }
+
+    #signatureCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .signature-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      color: #94a3b8;
+      font-size: 0.92rem;
+      text-align: center;
+      padding: 14px;
+      transition: opacity 0.2s;
+    }
+
+    .signature-placeholder.hidden {
+      opacity: 0;
+    }
+
+    /* ── BOTÓN DE GUARDAR ── */
+    .btn-save {
+      width: 100%;
+      min-height: 54px;
+      padding: 15px 24px;
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      border-radius: 12px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      box-shadow: 0 10px 22px rgba(0, 153, 168, 0.32);
+      transition: background 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn-save:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-save:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .error-alert {
+      display: none;
+      background: var(--danger-bg);
+      border-left: 4px solid var(--danger);
+      color: #991b1b;
+      padding: 12px 15px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    /* ── PANTALLA DE GRACIAS POR LLENAR ESTA ASISTENCIA ── */
+    .thankyou-screen,
+    .expired-screen {
+      display: none;
+      padding: 36px 22px;
+      text-align: center;
+    }
+
+    .thankyou-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 3px solid var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 18px;
+      font-size: 2.4rem;
+      font-weight: 800;
+    }
+
+    .expired-icon {
+      width: 78px;
+      height: 78px;
+      border-radius: 50%;
+      background: #fef2f2;
+      color: var(--danger);
+      border: 3px solid var(--danger);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 18px;
+      font-size: 2.1rem;
+      font-weight: 800;
+    }
+
+    .thankyou-title,
+    .expired-title {
+      font-size: clamp(1.3rem, 3.5vw, 1.65rem);
+      font-weight: 800;
+      color: var(--dark-gray);
+      margin-bottom: 10px;
+    }
+
+    .thankyou-text,
+    .expired-desc {
+      font-size: 0.96rem;
+      color: var(--mid-gray);
+      max-width: 500px;
+      margin: 0 auto 22px;
+      line-height: 1.5;
+    }
+
+    .receipt-card {
+      background: var(--light-gray);
+      border: 1px solid var(--border);
+      border-top: 4px solid var(--primary);
+      border-radius: 12px;
+      padding: 16px 18px;
+      max-width: 500px;
+      margin: 0 auto 22px;
+      text-align: left;
+      font-size: 0.88rem;
+    }
+
+    .receipt-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px dashed #cbd5e1;
+      gap: 12px;
+    }
+
+    .receipt-row:last-child {
+      border-bottom: none;
+    }
+
+    .btn-secondary {
+      background: var(--dark-gray);
+      color: var(--white);
+      border: none;
+      min-height: 46px;
+      padding: 12px 22px;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.92rem;
+    }
+
+    .footer-bar {
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 0.76rem;
+      color: var(--mid-gray);
+    }
+
+    /* ── ADAPTACIÓN RESPONSIVE PARA TABLETAS Y TELÉFONOS MÓVILES ── */
+    @media (max-width: 768px) {
+      .inst-header {
+        grid-template-columns: 95px 1fr 95px;
+        padding: 12px 14px;
+        gap: 8px;
+      }
+      .logo-slot {
+        height: 60px;
+      }
+      .logo-slot img {
+        max-height: 50px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      body {
+        padding: 0;
+        background: var(--white);
+      }
+      .form-shell {
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .inst-header {
+        grid-template-columns: 74px 1fr 74px;
+        padding: 10px 10px;
+        gap: 6px;
+      }
+      .logo-slot {
+        height: 52px;
+        padding: 4px;
+      }
+      .logo-slot img {
+        max-height: 44px;
+      }
+      .status-strip {
+        padding: 10px 14px;
+        font-size: 0.78rem;
+      }
+      .predefined-grid,
+      .participant-fields-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .receipt-row {
+        flex-direction: column;
+        gap: 2px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="form-shell">
+    <!-- HEADER CON LOGO A LA IZQUIERDA, CENTRO EN MAYÚSCULAS Y LOGO A LA DERECHA EDITABLES -->
+    <header class="inst-header" id="headerContainer">
+      <div class="logo-slot" title="Logo Izquierdo">
+        <img id="logoLeftImg" src="/uploads/logo-left-default.png" alt="Logo Izquierdo" />
+        <button type="button" class="logo-edit-btn" onclick="triggerLogoUpload('left')">✎ Logo</button>
+      </div>
+
+      <div class="header-center">
+        <h1 class="header-title" id="headerTitleText">ASISTENCIA DE PARTICIPACIÓN</h1>
+        <div class="header-accent-line"></div>
+        <p class="header-subtitle">Registro Digital de Asistencia</p>
+      </div>
+
+      <div class="logo-slot" title="Logo Derecho">
+        <img id="logoRightImg" src="/uploads/logo-right-default.jpeg" alt="Logo Derecho" />
+        <button type="button" class="logo-edit-btn" onclick="triggerLogoUpload('right')">✎ Logo</button>
+      </div>
+
+      <input type="file" id="hiddenLogoInput" accept="image/*" style="display:none" />
+    </header>
+
+    <!-- BARRA DE ESTADO Y REGLA DE 30 MINUTOS -->
+    <div class="status-strip">
+      <div>
+        <span class="status-badge" id="statusBadge">
+          <span class="pulse-dot"></span>
+          <span id="statusLabel">Verificando...</span>
+        </span>
+      </div>
+      <div>
+        Cierre (+30 min): <span class="timer-pill" id="countdownText">--:--</span>
+      </div>
+    </div>
+
+    <!-- FORMULARIO PRINCIPAL -->
+    <main class="form-body" id="activeFormSection">
+      <div class="error-alert" id="errorBox"></div>
+
+      <form id="attendanceForm" novalidate>
+        <!-- DATOS AUTOMÁTICOS PREDEFINIDOS AL CREAR LA REUNIÓN -->
+        <div class="predefined-grid">
+          <div class="predefined-item full">
+            <label class="field-label">
+              Tema <span class="auto-tag">AUTOMÁTICO</span>
+            </label>
+            <div class="readonly-box" id="autoTema">Cargando...</div>
+          </div>
+
+          <div class="predefined-item">
+            <label class="field-label">
+              Fecha <span class="auto-tag">AUTOMÁTICO</span>
+            </label>
+            <div class="readonly-box" id="autoFecha">--/--/----</div>
+          </div>
+
+          <div class="predefined-item">
+            <label class="field-label">
+              Hora <span class="auto-tag">AUTOMÁTICO</span>
+            </label>
+            <div class="readonly-box" id="autoHora">--:--</div>
+          </div>
+
+          <div class="meeting-chips" id="meetingMetaChips"></div>
+        </div>
+
+        <!-- CAMPOS QUE LLENAN LAS PERSONAS -->
+        <div class="participant-fields-grid">
+          <div class="full-span">
+            <label class="field-label" for="unidadSelect">
+              Unidad <span class="req">*</span>
+            </label>
+            <select id="unidadSelect" class="select-control" required>
+              <option value="">-- Seleccione su Unidad --</option>
+            </select>
+          </div>
+
+          <div class="full-span">
+            <label class="field-label" for="nombreInput">
+              Nombre Completo <span class="req">*</span>
+            </label>
+            <input
+              type="text"
+              id="nombreInput"
+              class="input-control"
+              placeholder="Escriba su nombre y apellidos completos"
+              autocomplete="name"
+              required
+            />
+          </div>
+
+          <div>
+            <label class="field-label" for="cargoSelect">
+              Cargo
+            </label>
+            <select id="cargoSelect" class="select-control">
+              <option value="">-- Seleccione su Cargo --</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="field-label" for="sexoSelect">
+              Sexo
+            </label>
+            <select id="sexoSelect" class="select-control">
+              <option value="">-- Seleccione --</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- FIRMA DIGITAL CON EL DEDO DESDE TELÉFONO O TABLETA -->
+        <div>
+          <label class="field-label">
+            Firma del Participante (Realice su firma con el dedo desde su teléfono o tableta) <span class="req">*</span>
+          </label>
+          <div class="signature-container" id="sigBox">
+            <div class="signature-toolbar">
+              <span>✍️ Firma Táctil Habilitada</span>
+              <button type="button" class="btn-clear-sig" id="clearSigBtn">Limpiar Firma</button>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="signatureCanvas"></canvas>
+              <div class="signature-placeholder" id="sigPlaceholder">
+                Deslice su dedo aquí para realizar su firma
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-save" id="saveBtn">
+          <span>Guardar Asistencia</span>
+        </button>
+      </form>
+    </main>
+
+    <!-- MENSAJE DE GRACIAS POR LLENAR ESTA ASISTENCIA -->
+    <section class="thankyou-screen" id="thankYouSection">
+      <div class="thankyou-icon">✓</div>
+      <h2 class="thankyou-title" id="thankYouTitle">¡Gracias por llenar esta asistencia!</h2>
+      <p class="thankyou-text" id="thankYouBody">
+        Su participación y firma digital han sido registradas correctamente en la base de datos institucional.
+      </p>
+
+      <div class="receipt-card" id="receiptDetails"></div>
+
+      <button type="button" class="btn-secondary" id="newEntryBtn">
+        Registrar otro participante en este dispositivo
+      </button>
+    </section>
+
+    <!-- PANTALLA DE LISTA DESACTIVADA (+30 MINUTOS) -->
+    <section class="expired-screen" id="expiredSection">
+      <div class="expired-icon">🔒</div>
+      <h2 class="expired-title">Lista de Asistencia Desactivada</h2>
+      <p class="expired-desc" id="expiredMessageText">
+        Esta lista de asistencia se desactivó automáticamente 30 minutos después de la fecha y hora programada en el calendario.
+      </p>
+      <div class="receipt-card" id="expiredEventSummary"></div>
+    </section>
+
+    <footer class="footer-bar">
+      <span>Sistema de Asistencia Institucional</span>
+      <span>
+        <button
+          type="button"
+          onclick="toggleLogoEditMode()"
+          style="background:none;border:none;color:#0099a8;cursor:pointer;font-weight:700;font-size:0.75rem;"
+        >
+          Editar Logos Header
+        </button>
+      </span>
+    </footer>
+  </div>
+
+  <script>
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const eventToken = decodeURIComponent(pathParts[pathParts.length - 1] || '');
+
+    let currentEvent = null;
+    let countdownInterval = null;
+    let hasSigned = false;
+    let strokeCount = 0;
+    let uploadingLogoSide = null;
+
+    const canvas = document.getElementById('signatureCanvas');
+    const ctx = canvas.getContext('2d');
+    const sigPlaceholder = document.getElementById('sigPlaceholder');
+    const sigBox = document.getElementById('sigBox');
+
+    let drawing = false;
+    let lastPoint = null;
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      let prevData = null;
+      if (hasSigned) {
+        prevData = canvas.toDataURL('image/png');
+      }
+
+      const dpr = Math.max(window.devicePixelRatio || 1, 1);
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#111827';
+      ctx.lineWidth = 2.6;
+
+      if (prevData) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        };
+        img.src = prevData;
+      }
+    }
+
+    function getPointerPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches && e.touches.length ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches && e.touches.length ? e.touches[0].clientY : e.clientY;
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top,
+      };
+    }
+
+    function startDrawing(e) {
+      if (e.cancelable) e.preventDefault();
+      drawing = true;
+      hasSigned = true;
+      strokeCount++;
+      sigPlaceholder.classList.add('hidden');
+      sigBox.classList.add('active-signing');
+      lastPoint = getPointerPos(e);
+
+      ctx.beginPath();
+      ctx.arc(lastPoint.x, lastPoint.y, 1.4, 0, Math.PI * 2);
+      ctx.fillStyle = '#111827';
+      ctx.fill();
+    }
+
+    function moveDrawing(e) {
+      if (!drawing) return;
+      if (e.cancelable) e.preventDefault();
+      const currentPoint = getPointerPos(e);
+      const midPoint = {
+        x: (lastPoint.x + currentPoint.x) / 2,
+        y: (lastPoint.y + currentPoint.y) / 2,
+      };
+
+      ctx.beginPath();
+      ctx.moveTo(lastPoint.x, lastPoint.y);
+      ctx.quadraticCurveTo(lastPoint.x, lastPoint.y, midPoint.x, midPoint.y);
+      ctx.stroke();
+
+      lastPoint = currentPoint;
+    }
+
+    function stopDrawing(e) {
+      if (!drawing) return;
+      if (e && e.cancelable) e.preventDefault();
+      drawing = false;
+      sigBox.classList.remove('active-signing');
+    }
+
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', moveDrawing);
+    window.addEventListener('mouseup', stopDrawing);
+
+    canvas.addEventListener('touchstart', startDrawing, { passive: false });
+    canvas.addEventListener('touchmove', moveDrawing, { passive: false });
+    window.addEventListener('touchend', stopDrawing, { passive: false });
+
+    function clearSignature() {
+      const rect = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      hasSigned = false;
+      strokeCount = 0;
+      sigPlaceholder.classList.remove('hidden');
+    }
+
+    document.getElementById('clearSigBtn').addEventListener('click', clearSignature);
+    window.addEventListener('resize', resizeCanvas);
+
+    function formatFechaDisplay(fechaStr) {
+      if (!fechaStr) return '';
+      const parts = fechaStr.split('-');
+      if (parts.length !== 3) return fechaStr;
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function showError(msg) {
+      const box = document.getElementById('errorBox');
+      box.textContent = msg;
+      box.style.display = 'block';
+      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function hideError() {
+      document.getElementById('errorBox').style.display = 'none';
+    }
+
+    function renderExpiredState(evento) {
+      document.getElementById('activeFormSection').style.display = 'none';
+      document.getElementById('thankYouSection').style.display = 'none';
+      document.getElementById('expiredSection').style.display = 'block';
+
+      const badge = document.getElementById('statusBadge');
+      badge.classList.add('expired');
+      document.getElementById('statusLabel').textContent = 'LISTA DESACTIVADA (+30 MIN)';
+      document.getElementById('countdownText').textContent = 'CERRADA';
+
+      document.getElementById('expiredMessageText').textContent =
+        evento.mensaje_estado ||
+        'Esta lista de asistencia se ha desactivado automáticamente al cumplirse los 30 minutos posteriores a la fecha y hora programada.';
+
+      document.getElementById('expiredEventSummary').innerHTML = `
+        <div class="receipt-row"><span>Tema:</span><strong>${escapeHtml(evento.tema)}</strong></div>
+        <div class="receipt-row"><span>Fecha Programada:</span><strong>${escapeHtml(formatFechaDisplay(evento.fecha))}</strong></div>
+        <div class="receipt-row"><span>Hora Programada:</span><strong>${escapeHtml(evento.hora)}</strong></div>
+        <div class="receipt-row"><span>Desactivación (+30 min):</span><strong>${escapeHtml(evento.hora_cierre || '')}</strong></div>
+      `;
+    }
+
+    function startCountdown(expirationIso) {
+      if (countdownInterval) clearInterval(countdownInterval);
+      const expTime = new Date(expirationIso).getTime();
+
+      function tick() {
+        const diffSec = Math.floor((expTime - Date.now()) / 1000);
+        if (diffSec <= 0) {
+          clearInterval(countdownInterval);
+          if (currentEvent && currentEvent.estado_manual === 'AUTO') {
+            currentEvent.activa = false;
+            renderExpiredState(currentEvent);
+          }
+          return;
+        }
+        const hrs = Math.floor(diffSec / 3600);
+        const mins = Math.floor((diffSec % 3600) / 60);
+        const secs = diffSec % 60;
+        const formatted =
+          hrs > 0
+            ? `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+            : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        document.getElementById('countdownText').textContent = `${formatted} (${currentEvent.hora_cierre})`;
+      }
+
+      tick();
+      countdownInterval = setInterval(tick, 1000);
+    }
+
+    async function loadEventForm() {
+      try {
+        const res = await fetch(`/api/public/evento/${encodeURIComponent(eventToken)}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          renderExpiredState({
+            tema: 'Vínculo no encontrado',
+            fecha: '--',
+            hora: '--',
+            hora_cierre: '--',
+            mensaje_estado: data.error || 'No se encontró la lista de asistencia solicitada.',
+          });
+          return;
+        }
+
+        currentEvent = data.evento;
+        const cfg = data.config || {};
+        const catalogos = data.catalogos || {};
+
+        document.getElementById('headerTitleText').textContent =
+          (cfg.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN').toUpperCase();
+        if (cfg.logo_izquierdo) document.getElementById('logoLeftImg').src = cfg.logo_izquierdo;
+        if (cfg.logo_derecho) document.getElementById('logoRightImg').src = cfg.logo_derecho;
+
+        document.getElementById('autoTema').textContent = currentEvent.tema;
+        document.getElementById('autoFecha').textContent = formatFechaDisplay(currentEvent.fecha);
+        document.getElementById('autoHora').textContent = currentEvent.hora;
+
+        // Mostrar chips informativos de la reunión programada
+        const chips = [];
+        if (currentEvent.direccion_organiza) {
+          chips.push(`<span class="meta-chip"><b>Organiza:</b> ${escapeHtml(currentEvent.direccion_organiza)}</span>`);
+        }
+        if (currentEvent.tipo) {
+          chips.push(`<span class="meta-chip"><b>Modalidad:</b> ${escapeHtml(currentEvent.tipo)}</span>`);
+        }
+        if (currentEvent.lugar) {
+          chips.push(`<span class="meta-chip"><b>Lugar:</b> ${escapeHtml(currentEvent.lugar)}</span>`);
+        }
+        if (currentEvent.proceso_iso) {
+          chips.push(`<span class="meta-chip"><b>Proceso ISO:</b> ${escapeHtml(currentEvent.proceso_iso)}</span>`);
+        }
+        document.getElementById('meetingMetaChips').innerHTML = chips.join('');
+
+        // Poblar Lista Desplegable de Unidad (destacando las Unidades Invitadas)
+        const unidadSelect = document.getElementById('unidadSelect');
+        const allUnits = catalogos.UNIDAD || data.unidades || [];
+        const invitedList = currentEvent.unidades_invitadas_lista || [];
+
+        unidadSelect.innerHTML = '<option value="">-- Seleccione su Unidad --</option>';
+        if (invitedList.length > 0) {
+          const grpInv = document.createElement('optgroup');
+          grpInv.label = 'Unidades Convocadas / Invitadas';
+          for (const uName of invitedList) {
+            const opt = document.createElement('option');
+            opt.value = uName;
+            opt.textContent = uName;
+            grpInv.appendChild(opt);
+          }
+          unidadSelect.appendChild(grpInv);
+
+          const otherUnits = allUnits.filter((u) => !invitedList.includes(u.nombre));
+          if (otherUnits.length > 0) {
+            const grpOther = document.createElement('optgroup');
+            grpOther.label = 'Otras Unidades Institucionales';
+            for (const u of otherUnits) {
+              const opt = document.createElement('option');
+              opt.value = u.nombre;
+              opt.textContent = u.nombre;
+              grpOther.appendChild(opt);
+            }
+            unidadSelect.appendChild(grpOther);
+          }
+        } else {
+          for (const u of allUnits) {
+            const opt = document.createElement('option');
+            opt.value = u.nombre;
+            opt.textContent = u.nombre;
+            unidadSelect.appendChild(opt);
+          }
+        }
+
+        // Poblar Cargo
+        const cargoSelect = document.getElementById('cargoSelect');
+        cargoSelect.innerHTML = '<option value="">-- Seleccione su Cargo --</option>';
+        for (const c of catalogos.CARGO || []) {
+          const opt = document.createElement('option');
+          opt.value = c.nombre;
+          opt.textContent = c.nombre;
+          cargoSelect.appendChild(opt);
+        }
+
+        // Poblar Sexo
+        const sexoSelect = document.getElementById('sexoSelect');
+        sexoSelect.innerHTML = '<option value="">-- Seleccione --</option>';
+        for (const s of catalogos.SEXO || []) {
+          const opt = document.createElement('option');
+          opt.value = s.nombre;
+          opt.textContent = s.nombre;
+          sexoSelect.appendChild(opt);
+        }
+
+        if (!currentEvent.activa) {
+          renderExpiredState(currentEvent);
+          return;
+        }
+
+        document.getElementById('statusBadge').classList.remove('expired');
+        document.getElementById('statusLabel').textContent = currentEvent.etiqueta_estado || 'LISTA ACTIVA';
+        startCountdown(currentEvent.expiracion_iso);
+
+        setTimeout(resizeCanvas, 60);
+      } catch (err) {
+        showError('Error al conectar con el servidor de asistencias.');
+      }
+    }
+
+    document.getElementById('attendanceForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+
+      const unidad = document.getElementById('unidadSelect').value.trim();
+      const cargo = document.getElementById('cargoSelect').value.trim();
+      const sexo = document.getElementById('sexoSelect').value.trim();
+      const nombre = document.getElementById('nombreInput').value.trim();
+
+      if (!unidad) {
+        showError('Por favor seleccione su Unidad de la lista desplegable.');
+        return;
+      }
+      if (!nombre || nombre.length < 2) {
+        showError('Por favor ingrese su Nombre completo.');
+        return;
+      }
+      if (!hasSigned || strokeCount === 0) {
+        showError('Por favor realice su firma con el dedo en el recuadro antes de guardar.');
+        return;
+      }
+
+      const firmaBase64 = canvas.toDataURL('image/png');
+      const saveBtn = document.getElementById('saveBtn');
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span>Guardando asistencia...</span>';
+
+      try {
+        const res = await fetch(`/api/public/asistencia/${encodeURIComponent(eventToken)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            unidad,
+            cargo,
+            sexo,
+            nombre,
+            firma_base64: firmaBase64,
+          }),
+        });
+
+        const result = await res.json();
+        if (!res.ok) {
+          if (res.status === 403 && result.evento) {
+            renderExpiredState(result.evento);
+            return;
+          }
+          showError(result.error || 'No se pudo guardar la asistencia.');
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<span>Guardar Asistencia</span>';
+          return;
+        }
+
+        document.getElementById('activeFormSection').style.display = 'none';
+        document.getElementById('thankYouSection').style.display = 'block';
+        document.getElementById('thankYouTitle').textContent =
+          result.mensaje_titulo || '¡Gracias por llenar esta asistencia!';
+        document.getElementById('thankYouBody').textContent =
+          result.mensaje_cuerpo || 'Su asistencia ha sido guardada correctamente.';
+
+        const reg = result.registro || {};
+        document.getElementById('receiptDetails').innerHTML = `
+          <div class="receipt-row"><span>Folio:</span><strong>#${reg.id}</strong></div>
+          <div class="receipt-row"><span>Nombre:</span><strong>${escapeHtml(reg.nombre)}</strong></div>
+          <div class="receipt-row"><span>Unidad:</span><strong>${escapeHtml(reg.unidad)}</strong></div>
+          ${reg.cargo ? `<div class="receipt-row"><span>Cargo:</span><strong>${escapeHtml(reg.cargo)}</strong></div>` : ''}
+          <div class="receipt-row"><span>Tema:</span><strong>${escapeHtml(reg.tema)}</strong></div>
+          <div class="receipt-row"><span>Fecha y Hora:</span><strong>${escapeHtml(formatFechaDisplay(reg.fecha))} — ${escapeHtml(reg.hora)}</strong></div>
+        `;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch {
+        showError('Error de red al guardar su asistencia. Intente nuevamente.');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<span>Guardar Asistencia</span>';
+      }
+    });
+
+    document.getElementById('newEntryBtn').addEventListener('click', () => {
+      document.getElementById('nombreInput').value = '';
+      clearSignature();
+      document.getElementById('thankYouSection').style.display = 'none';
+      document.getElementById('activeFormSection').style.display = 'block';
+      loadEventForm();
+      setTimeout(resizeCanvas, 50);
+    });
+
+    function toggleLogoEditMode() {
+      document.getElementById('headerContainer').classList.toggle('edit-mode-on');
+    }
+
+    function triggerLogoUpload(side) {
+      uploadingLogoSide = side;
+      document.getElementById('hiddenLogoInput').click();
+    }
+
+    document.getElementById('hiddenLogoInput').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file || !uploadingLogoSide) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const res = await fetch('/api/upload-logo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ side: uploadingLogoSide, dataUrl: reader.result }),
+        });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          if (uploadingLogoSide === 'left') {
+            document.getElementById('logoLeftImg').src = data.url;
+          } else {
+            document.getElementById('logoRightImg').src = data.url;
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    loadEventForm();
+  </script>
+</body>
+</html>

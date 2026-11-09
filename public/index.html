@@ -1,0 +1,2193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Gestión de Reuniones y Listas de Asistencia</title>
+  <style>
+    :root {
+      --primary: #0099a8;
+      --primary-dark: #007784;
+      --primary-soft: #e6f6f8;
+      --dark-gray: #1f2937;
+      --dark-gray-deep: #111827;
+      --slate: #334155;
+      --muted: #64748b;
+      --bg: #f1f5f9;
+      --white: #ffffff;
+      --border: #cbd5e1;
+      --danger: #dc2626;
+      --success: #0d9488;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--dark-gray);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── BARRA SUPERIOR DE APLICACIÓN (SIN EL HEADER DE LA HOJA DE ASISTENCIA) ── */
+    .app-topbar {
+      background: var(--dark-gray-deep);
+      color: var(--white);
+      border-bottom: 4px solid var(--primary);
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+    }
+
+    .app-topbar-inner {
+      max-width: 1420px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
+      min-height: 66px;
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--primary);
+      color: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 1.15rem;
+      box-shadow: 0 4px 12px rgba(0, 153, 168, 0.4);
+    }
+
+    .brand-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: var(--white);
+    }
+
+    .brand-sub {
+      font-size: 0.73rem;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+
+    /* ── 4 PESTAÑAS INDEPENDIENTES ── */
+    .nav-tabs {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      align-self: stretch;
+    }
+
+    .nav-tab {
+      background: transparent;
+      color: #cbd5e1;
+      border: none;
+      padding: 0 20px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      border-bottom: 4px solid transparent;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      min-height: 62px;
+    }
+
+    .nav-tab:hover {
+      color: var(--white);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .nav-tab.active {
+      color: var(--white);
+      border-bottom-color: var(--primary);
+      background: rgba(0, 153, 168, 0.18);
+    }
+
+    .nav-tab .badge-count {
+      background: var(--primary);
+      color: var(--white);
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    /* ── SUB-BARRA DE RECURSOS Y TELEMETRÍA ── */
+    .telemetry-bar {
+      background: var(--dark-gray);
+      color: #cbd5e1;
+      padding: 7px 24px;
+      font-size: 0.76rem;
+      border-bottom: 1px solid #334155;
+    }
+
+    .telemetry-inner {
+      max-width: 1420px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .telemetry-items {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .sys-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 2px 10px;
+      border-radius: 999px;
+      color: var(--white);
+      font-weight: 600;
+    }
+
+    .sys-pill b {
+      color: #38bdf8;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    /* ── CONTENEDOR PRINCIPAL ── */
+    .main-container {
+      max-width: 1420px;
+      width: 100%;
+      margin: 22px auto 48px;
+      padding: 0 22px;
+      flex: 1;
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    /* ── COMPONENTES GENERALES ── */
+    .panel-card {
+      background: var(--white);
+      border-radius: 14px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+      overflow: hidden;
+      margin-bottom: 22px;
+    }
+
+    .panel-header {
+      background: var(--dark-gray);
+      color: var(--white);
+      padding: 15px 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      border-bottom: 3px solid var(--primary);
+    }
+
+    .panel-header h2 {
+      font-size: 1.02rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .panel-body {
+      padding: 24px;
+    }
+
+    label.lbl {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--slate);
+      margin-bottom: 6px;
+      letter-spacing: 0.03em;
+    }
+
+    label.lbl .req {
+      color: var(--primary);
+    }
+
+    .inp,
+    .sel {
+      width: 100%;
+      padding: 11px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 9px;
+      font-size: 0.94rem;
+      color: var(--dark-gray);
+      font-family: inherit;
+      background: var(--white);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .inp:focus,
+    .sel:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(0, 153, 168, 0.16);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      padding: 12px 20px;
+      border-radius: 9px;
+      font-weight: 800;
+      font-size: 0.92rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-dark {
+      background: var(--dark-gray);
+      color: var(--white);
+      border: none;
+      padding: 9px 15px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.83rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+
+    .btn-outline {
+      background: var(--white);
+      color: var(--dark-gray);
+      border: 1.5px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+
+    .btn-outline:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    .state-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.73rem;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .state-pill.active {
+      background: var(--primary-soft);
+      color: var(--primary-dark);
+      border: 1px solid var(--primary);
+    }
+
+    .state-pill.expired {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
+    /* ── PESTAÑA 1: PROGRAMAR REUNIÓN ── */
+    .schedule-layout {
+      display: grid;
+      grid-template-columns: 1.35fr 0.85fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .schedule-form-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .span-2 {
+      grid-column: span 2;
+    }
+
+    .span-3 {
+      grid-column: 1 / -1;
+    }
+
+    /* Selector Múltiple de Unidades Invitadas (1 a más) */
+    .multi-units-box {
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: #f8fafc;
+      overflow: hidden;
+    }
+
+    .multi-units-toolbar {
+      padding: 10px 14px;
+      background: var(--white);
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .multi-units-list {
+      max-height: 210px;
+      overflow-y: auto;
+      padding: 10px 14px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .unit-check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 7px;
+      background: var(--white);
+      border: 1px solid #e2e8f0;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .unit-check-item:hover {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    .unit-check-item input[type='checkbox'] {
+      accent-color: var(--primary);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    /* ── PESTAÑA 2: LISTAS GENERADAS EN ESTILO CALENDARIO ── */
+    .calendar-workspace {
+      display: grid;
+      grid-template-columns: 1fr 410px;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .full-cal-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .full-cal-month-title {
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: var(--dark-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .full-cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      border-top: 1px solid #cbd5e1;
+      border-left: 1px solid #cbd5e1;
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--white);
+    }
+
+    .full-cal-weekday {
+      background: var(--dark-gray);
+      color: var(--white);
+      padding: 10px 8px;
+      text-align: center;
+      font-size: 0.76rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-right: 1px solid #334155;
+    }
+
+    .full-cal-cell {
+      min-height: 122px;
+      border-right: 1px solid #cbd5e1;
+      border-bottom: 1px solid #cbd5e1;
+      padding: 8px;
+      background: var(--white);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .full-cal-cell:hover {
+      background: #f8fafc;
+    }
+
+    .full-cal-cell.other-month {
+      background: #f1f5f9;
+      opacity: 0.48;
+      cursor: default;
+    }
+
+    .full-cal-cell.today-cell {
+      background: #f0fdfa;
+    }
+
+    .full-cal-cell.selected-cell {
+      outline: 2px solid var(--primary);
+      outline-offset: -2px;
+      background: var(--primary-soft);
+    }
+
+    .cal-day-num {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--slate);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .today-badge {
+      background: var(--primary);
+      color: var(--white);
+      font-size: 0.65rem;
+      padding: 1px 6px;
+      border-radius: 999px;
+    }
+
+    .cal-event-chip {
+      background: var(--primary);
+      color: var(--white);
+      border-radius: 6px;
+      padding: 5px 7px;
+      font-size: 0.73rem;
+      font-weight: 700;
+      line-height: 1.25;
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      border-left: 3px solid #004d56;
+      transition: transform 0.1s, box-shadow 0.15s;
+    }
+
+    .cal-event-chip:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(0, 153, 168, 0.35);
+    }
+
+    .cal-event-chip.expired-chip {
+      background: #475569;
+      border-left-color: #1e293b;
+      opacity: 0.86;
+    }
+
+    /* Inspector lateral de Listas del Día / Evento Seleccionado */
+    .day-inspector-card {
+      border: 1.5px solid #cbd5e1;
+      border-left: 5px solid var(--primary);
+      border-radius: 11px;
+      padding: 15px;
+      background: var(--white);
+      margin-bottom: 14px;
+    }
+
+    .day-inspector-card.expired {
+      border-left-color: #64748b;
+    }
+
+    .link-box {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 8px 11px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 10px 0;
+      flex-wrap: wrap;
+    }
+
+    .link-url {
+      font-family: 'Consolas', monospace;
+      font-size: 0.8rem;
+      color: var(--primary-dark);
+      font-weight: 700;
+      word-break: break-all;
+    }
+
+    /* ── PESTAÑA 3: BASE DE DATOS GENERAL ── */
+    .filter-bar {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr 1fr 150px auto;
+      gap: 10px;
+      margin-bottom: 18px;
+      align-items: end;
+    }
+
+    .db-table-wrap {
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+    }
+
+    table.db-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      background: var(--white);
+    }
+
+    table.db-table thead th {
+      background: var(--dark-gray);
+      color: var(--white);
+      text-transform: uppercase;
+      font-size: 0.73rem;
+      letter-spacing: 0.04em;
+      padding: 11px 12px;
+      text-align: left;
+      border-bottom: 3px solid var(--primary);
+      white-space: nowrap;
+    }
+
+    table.db-table tbody td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: middle;
+    }
+
+    table.db-table tbody tr:hover {
+      background: var(--primary-soft);
+    }
+
+    .sig-thumb {
+      height: 42px;
+      max-width: 140px;
+      object-fit: contain;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 2px 5px;
+    }
+
+    /* ── PESTAÑA 4: CONFIGURACIÓN DE CATÁLOGOS DESPLEGABLES ── */
+    .config-layout {
+      display: grid;
+      grid-template-columns: 270px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .catalog-menu {
+      background: var(--white);
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+    }
+
+    .catalog-menu-btn {
+      width: 100%;
+      padding: 14px 16px;
+      text-align: left;
+      background: var(--white);
+      border: none;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--dark-gray);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.15s;
+    }
+
+    .catalog-menu-btn:hover {
+      background: var(--primary-soft);
+      color: var(--primary-dark);
+    }
+
+    .catalog-menu-btn.active {
+      background: var(--primary);
+      color: var(--white);
+    }
+
+    /* ── MODAL QR ── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.78);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .qr-modal {
+      background: var(--white);
+      width: 100%;
+      max-width: 620px;
+      border-radius: 16px;
+      border-top: 7px solid var(--primary);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45);
+      overflow: hidden;
+      text-align: center;
+    }
+
+    .qr-modal-header {
+      background: var(--dark-gray);
+      color: var(--white);
+      padding: 15px 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .qr-modal-body {
+      padding: 24px;
+    }
+
+    .qr-frame {
+      display: inline-block;
+      padding: 14px;
+      border: 3px solid var(--primary);
+      border-radius: 16px;
+      background: var(--white);
+      margin: 12px auto;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 22px;
+      right: 22px;
+      background: var(--dark-gray);
+      color: var(--white);
+      border-left: 5px solid var(--primary);
+      padding: 13px 20px;
+      border-radius: 10px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+      font-weight: 700;
+      font-size: 0.9rem;
+      z-index: 200;
+      display: none;
+    }
+
+    @media (max-width: 1100px) {
+      .schedule-layout,
+      .calendar-workspace,
+      .config-layout {
+        grid-template-columns: 1fr;
+      }
+      .filter-bar {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .schedule-form-grid,
+      .multi-units-list {
+        grid-template-columns: 1fr;
+      }
+      .span-2,
+      .span-3 {
+        grid-column: 1 / -1;
+      }
+      .full-cal-cell {
+        min-height: 82px;
+        padding: 4px;
+      }
+      .filter-bar {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- BARRA DE NAVEGACIÓN PRINCIPAL (4 PESTAÑAS SEPARADAS) -->
+  <header class="app-topbar">
+    <div class="app-topbar-inner">
+      <div class="brand-block">
+        <div class="brand-icon">✓</div>
+        <div>
+          <div class="brand-title">SISTEMA DE GESTIÓN DE ASISTENCIAS</div>
+          <div class="brand-sub">Calendarización, Vínculos por Separado, QR y Base de Datos Central</div>
+        </div>
+      </div>
+
+      <nav class="nav-tabs">
+        <button class="nav-tab active" data-tab="programar" onclick="switchTab('programar', this)">
+          ➕ Programar Reunión
+        </button>
+        <button class="nav-tab" data-tab="listas" onclick="switchTab('listas', this)">
+          🗓️ Listas Generadas (Calendario)
+          <span class="badge-count" id="badgeEventosCount">0</span>
+        </button>
+        <button class="nav-tab" data-tab="basedatos" onclick="switchTab('basedatos', this)">
+          🗄️ Base de Datos
+          <span class="badge-count" id="badgeAsistenciasCount">0</span>
+        </button>
+        <button class="nav-tab" data-tab="configuracion" onclick="switchTab('configuracion', this)">
+          ⚙️ Configuración
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- BARRA DE TELEMETRÍA Y REGLA DE 30 MINUTOS -->
+  <div class="telemetry-bar">
+    <div class="telemetry-inner">
+      <div class="telemetry-items">
+        <span class="sys-pill">
+          <span class="live-dot"></span>
+          Base de Datos Centralizada Activa
+        </span>
+        <span class="sys-pill" id="sysCpuInfo">CPU: --</span>
+        <span class="sys-pill" id="sysRamInfo">RAM: --</span>
+        <span class="sys-pill" id="sysNetInfo">URL Red: --</span>
+      </div>
+      <div>
+        <span>⏱️ Vigencia automática de cada lista: <b>Se desactiva 30 min después de Fecha y Hora</b></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENEDOR DE LAS 4 PESTAÑAS -->
+  <div class="main-container">
+    <!-- ════════════════════════════════════════════════════════════════════════
+         PESTAÑA 1: PROGRAMAR REUNIÓN (SOLA)
+         ════════════════════════════════════════════════════════════════════════ -->
+    <section class="tab-pane active" id="tab-programar">
+      <div class="schedule-layout">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h2>➕ Programar Nueva Reunión y Generar Lista de Asistencia</h2>
+          </div>
+          <div class="panel-body">
+            <form id="createEventForm">
+              <div class="schedule-form-grid">
+                <div>
+                  <label class="lbl" for="evFecha">Fecha <span class="req">*</span></label>
+                  <input type="date" id="evFecha" class="inp" required />
+                </div>
+
+                <div>
+                  <label class="lbl" for="evHora">Hora <span class="req">*</span></label>
+                  <input type="time" id="evHora" class="inp" required />
+                </div>
+
+                <div>
+                  <label class="lbl" for="evTipo">Tipo (Modalidad) <span class="req">*</span></label>
+                  <select id="evTipo" class="sel" required></select>
+                </div>
+
+                <div class="span-3">
+                  <label class="lbl" for="evTema">Tema de la Reunión <span class="req">*</span></label>
+                  <input
+                    type="text"
+                    id="evTema"
+                    class="inp"
+                    placeholder="Ej. Revisión por la Dirección del Sistema de Gestión ISO 9001"
+                    required
+                  />
+                </div>
+
+                <div class="span-2">
+                  <label class="lbl" for="evDireccion">Dirección que Organiza <span class="req">*</span></label>
+                  <select id="evDireccion" class="sel" required></select>
+                </div>
+
+                <div>
+                  <label class="lbl" for="evLugar">Lugar / Sala / Plataforma <span class="req">*</span></label>
+                  <input
+                    type="text"
+                    id="evLugar"
+                    class="inp"
+                    placeholder="Ej. Sala Magna / Microsoft Teams"
+                    required
+                  />
+                </div>
+
+                <div class="span-2">
+                  <label class="lbl" for="evProcesoIso">Proceso ISO <span class="req">*</span></label>
+                  <select id="evProcesoIso" class="sel" required></select>
+                </div>
+
+                <div>
+                  <label class="lbl" for="evPlanificacion">Planificación <span class="req">*</span></label>
+                  <select id="evPlanificacion" class="sel" required></select>
+                </div>
+
+                <!-- UNIDADES INVITADAS: 1 A MÁS (VINCULADO AL CAMPO DE UNIDADES) -->
+                <div class="span-3">
+                  <label class="lbl">
+                    Unidades Invitadas (Seleccione 1 o más — vinculado al catálogo de Unidades) <span class="req">*</span>
+                  </label>
+                  <div class="multi-units-box">
+                    <div class="multi-units-toolbar">
+                      <span style="font-size:0.8rem;font-weight:700;color:var(--slate);" id="selectedUnitsCounter">
+                        0 unidades seleccionadas
+                      </span>
+                      <div style="display:flex;gap:8px;">
+                        <button type="button" class="btn-outline" style="padding:4px 10px;font-size:0.75rem;" onclick="selectAllInvitedUnits(true)">
+                          ✓ Seleccionar Todas
+                        </button>
+                        <button type="button" class="btn-outline" style="padding:4px 10px;font-size:0.75rem;" onclick="selectAllInvitedUnits(false)">
+                          ✕ Limpiar
+                        </button>
+                      </div>
+                    </div>
+                    <div class="multi-units-list" id="invitedUnitsCheckboxes"></div>
+                  </div>
+                </div>
+
+                <div class="span-3" style="margin-top:6px;">
+                  <button type="submit" class="btn-primary" style="width:100%;padding:15px;font-size:1rem;">
+                    🔗 Programar Reunión y Generar Vínculo + Código QR
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- PANEL DERECHO: RESULTADO DE LA REUNIÓN RECIÉN CREADA / RESUMEN -->
+        <div>
+          <div class="panel-card" id="newlyCreatedCard">
+            <div class="panel-header">
+              <h2>📱 Vínculo y QR de Lista Recién Generada</h2>
+            </div>
+            <div class="panel-body" id="newlyCreatedBody" style="text-align:center;">
+              <p style="color:var(--muted);padding:20px 10px;line-height:1.5;">
+                Complete los campos a la izquierda y presione <b>«Programar Reunión»</b>. Aquí aparecerá de inmediato el vínculo exclusivo y el código QR descargable para compartir con los participantes, y quedará registrada en la pestaña <b>Listas Generadas (Calendario)</b>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════════════════
+         PESTAÑA 2: LISTAS GENERADAS (ESTILO CALENDARIO)
+         ════════════════════════════════════════════════════════════════════════ -->
+    <section class="tab-pane" id="tab-listas">
+      <div class="calendar-workspace">
+        <!-- CALENDARIO MENSUAL ESTILO AGENDA VISUAL -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <h2>🗓️ Calendario de Listas de Asistencia Generadas</h2>
+            <div style="display:flex;gap:8px;">
+              <button type="button" class="btn-outline" style="padding:5px 11px;font-size:0.78rem;" onclick="goToTodayCalendar()">
+                Hoy
+              </button>
+              <button type="button" class="btn-primary" style="padding:5px 12px;font-size:0.78rem;" onclick="switchTab('programar', document.querySelector('[data-tab=programar]'))">
+                + Nueva Reunión
+              </button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="full-cal-toolbar">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <button type="button" class="btn-outline" onclick="changeMonth(-1)">◀ Mes Anterior</button>
+                <span class="full-cal-month-title" id="calMonthLabel">Mes Año</span>
+                <button type="button" class="btn-outline" onclick="changeMonth(1)">Mes Siguiente ▶</button>
+              </div>
+              <div style="display:flex;gap:12px;font-size:0.78rem;font-weight:700;">
+                <span style="display:inline-flex;align-items:center;gap:5px;">
+                  <span style="width:11px;height:11px;border-radius:3px;background:#0099a8;display:inline-block;"></span>
+                  Lista Activa / Programada
+                </span>
+                <span style="display:inline-flex;align-items:center;gap:5px;">
+                  <span style="width:11px;height:11px;border-radius:3px;background:#475569;display:inline-block;"></span>
+                  Desactivada (+30 min)
+                </span>
+              </div>
+            </div>
+
+            <div class="full-cal-grid" id="calendarGrid"></div>
+          </div>
+        </div>
+
+        <!-- INSPECTOR DE LISTAS DEL DÍA / REUNIÓN SELECCIONADA -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <h2 id="inspectorHeaderTitle">📋 Detalle de Listas</h2>
+            <button
+              type="button"
+              class="btn-outline"
+              style="padding:4px 9px;font-size:0.73rem;"
+              onclick="clearCalendarSelection()"
+            >
+              Ver Todas
+            </button>
+          </div>
+          <div class="panel-body" id="calendarInspectorBody" style="max-height:740px;overflow-y:auto;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════════════════
+         PESTAÑA 3: BASE DE DATOS GENERAL (CAPTA TODAS LAS LISTAS)
+         ════════════════════════════════════════════════════════════════════════ -->
+    <section class="tab-pane" id="tab-basedatos">
+      <div class="panel-card">
+        <div class="panel-header">
+          <h2>🗄️ Base de Datos Centralizada de Asistencias</h2>
+          <div style="display:flex;gap:10px;">
+            <button type="button" class="btn-primary" style="padding:7px 14px;font-size:0.82rem;" onclick="exportFilteredCSV()">
+              ⬇️ Exportar Base de Datos a Excel (CSV)
+            </button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="filter-bar">
+            <div>
+              <label class="lbl">Buscar (Nombre, Tema, Cargo)</label>
+              <input
+                type="text"
+                id="dbFilterSearch"
+                class="inp"
+                placeholder="Buscar participante o reunión..."
+                oninput="loadCentralDatabase()"
+              />
+            </div>
+            <div>
+              <label class="lbl">Reunión / Lista</label>
+              <select id="dbFilterEvento" class="sel" onchange="loadCentralDatabase()">
+                <option value="">-- Todas las Listas --</option>
+              </select>
+            </div>
+            <div>
+              <label class="lbl">Unidad</label>
+              <select id="dbFilterUnidad" class="sel" onchange="loadCentralDatabase()">
+                <option value="">-- Todas las Unidades --</option>
+              </select>
+            </div>
+            <div>
+              <label class="lbl">Proceso ISO</label>
+              <select id="dbFilterProceso" class="sel" onchange="loadCentralDatabase()">
+                <option value="">-- Todos los Procesos --</option>
+              </select>
+            </div>
+            <div>
+              <label class="lbl">Fecha</label>
+              <input type="date" id="dbFilterFecha" class="inp" onchange="loadCentralDatabase()" />
+            </div>
+            <div>
+              <button type="button" class="btn-outline" onclick="resetDbFilters()">Limpiar</button>
+            </div>
+          </div>
+
+          <div class="db-table-wrap">
+            <table class="db-table">
+              <thead>
+                <tr>
+                  <th>Folio</th>
+                  <th>Fecha / Hora</th>
+                  <th>Tema de Reunión</th>
+                  <th>Dirección / Proceso ISO</th>
+                  <th>Nombre del Participante</th>
+                  <th>Unidad</th>
+                  <th>Cargo / Sexo</th>
+                  <th>Firma Digital</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="centralDbTableBody">
+                <tr>
+                  <td colspan="9" style="text-align:center;padding:28px;">Cargando base de datos...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════════════════
+         PESTAÑA 4: CONFIGURACIÓN (TODAS LAS LISTAS DESPLEGABLES Y LOGOS)
+         ════════════════════════════════════════════════════════════════════════ -->
+    <section class="tab-pane" id="tab-configuracion">
+      <div class="config-layout">
+        <!-- MENÚ LATERAL DE LISTAS DESPLEGABLES A CONFIGURAR -->
+        <div class="catalog-menu">
+          <div style="background:var(--dark-gray);color:#fff;padding:13px 16px;font-weight:800;font-size:0.82rem;text-transform:uppercase;border-bottom:3px solid var(--primary);">
+            Listas Desplegables
+          </div>
+          <button type="button" class="catalog-menu-btn active" onclick="selectCatalogCategory('UNIDAD', this)">
+            <span>🏢 Unidad</span>
+            <span class="badge-count" id="catCount-UNIDAD">0</span>
+          </button>
+          <button type="button" class="catalog-menu-btn" onclick="selectCatalogCategory('CARGO', this)">
+            <span>👔 Cargo</span>
+            <span class="badge-count" id="catCount-CARGO">0</span>
+          </button>
+          <button type="button" class="catalog-menu-btn" onclick="selectCatalogCategory('TIPO', this)">
+            <span>💻 Tipo (Modalidad)</span>
+            <span class="badge-count" id="catCount-TIPO">0</span>
+          </button>
+          <button type="button" class="catalog-menu-btn" onclick="selectCatalogCategory('SEXO', this)">
+            <span>👤 Sexo</span>
+            <span class="badge-count" id="catCount-SEXO">0</span>
+          </button>
+          <button type="button" class="catalog-menu-btn" onclick="selectCatalogCategory('PROCESO_ISO', this)">
+            <span>📋 Proceso ISO</span>
+            <span class="badge-count" id="catCount-PROCESO_ISO">0</span>
+          </button>
+          <button type="button" class="catalog-menu-btn" onclick="selectCatalogCategory('PLANIFICACION', this)">
+            <span>🗓️ Planificación</span>
+            <span class="badge-count" id="catCount-PLANIFICACION">0</span>
+          </button>
+          <button type="button" class="catalog-menu-btn" onclick="selectCatalogCategory('HEADER_LOGOS', this)">
+            <span>🖼️ Logos Header Asistencia</span>
+            <span>⚙️</span>
+          </button>
+        </div>
+
+        <!-- PANEL DE EDICIÓN DE LA LISTA DESPLEGABLE SELECCIONADA -->
+        <div>
+          <div class="panel-card" id="catalogEditorCard">
+            <div class="panel-header">
+              <h2 id="catalogEditorTitle">🏢 Configurar Lista Desplegable: Unidad</h2>
+            </div>
+            <div class="panel-body">
+              <form id="addCatalogItemForm" style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+                <input
+                  type="text"
+                  id="newCatNombre"
+                  class="inp"
+                  placeholder="Escriba la nueva opción para la lista desplegable..."
+                  style="flex:1;min-width:220px;"
+                  required
+                />
+                <input
+                  type="text"
+                  id="newCatCodigo"
+                  class="inp"
+                  placeholder="Código / Sigla (Opcional)"
+                  style="width:170px;"
+                />
+                <button type="submit" class="btn-primary">+ Agregar Opción</button>
+              </form>
+
+              <div class="db-table-wrap">
+                <table class="db-table">
+                  <thead>
+                    <tr>
+                      <th>Nombre de la Opción</th>
+                      <th>Código / Abreviatura</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="catalogItemsTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- PANEL DE CONFIGURACIÓN DE LOGOS DEL HEADER DE LAS LISTAS DE ASISTENCIA -->
+          <div class="panel-card" id="headerLogosConfigCard" style="display:none;">
+            <div class="panel-header">
+              <h2>🖼️ Configurar Header Exclusivo de las Listas de Asistencia</h2>
+            </div>
+            <div class="panel-body">
+              <p style="font-size:0.86rem;color:var(--muted);margin-bottom:16px;">
+                Este encabezado (con Logo Izquierdo, Título Central en Mayúsculas y Logo Derecho) se muestra únicamente en el formulario que llenan los participantes y en el acta imprimible.
+              </p>
+
+              <!-- Vista previa del Header de las Listas de Asistencia -->
+              <div style="display:grid;grid-template-columns:120px 1fr 120px;align-items:center;gap:12px;padding:14px;border:2px solid var(--primary);border-radius:12px;margin-bottom:20px;background:#fff;">
+                <div style="text-align:center;">
+                  <img id="previewLeftLogo" src="/uploads/logo-left-default.png" alt="Logo Izq" style="max-height:56px;max-width:100%;object-fit:contain;" />
+                </div>
+                <div style="text-align:center;">
+                  <strong id="previewHeaderTitle" style="font-size:1.1rem;text-transform:uppercase;color:var(--dark-gray);">ASISTENCIA DE PARTICIPACIÓN</strong>
+                </div>
+                <div style="text-align:center;">
+                  <img id="previewRightLogo" src="/uploads/logo-right-default.jpeg" alt="Logo Der" style="max-height:56px;max-width:100%;object-fit:contain;" />
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+                <button type="button" class="btn-outline" onclick="openLogoFilePicker('left')">
+                  📁 Cambiar Logo Izquierdo
+                </button>
+                <button type="button" class="btn-outline" onclick="openLogoFilePicker('right')">
+                  📁 Cambiar Logo Derecho
+                </button>
+              </div>
+              <input type="file" id="globalLogoFileInput" accept="image/*" style="display:none" />
+
+              <div style="margin-bottom:14px;">
+                <label class="lbl">Título Central (En Mayúsculas)</label>
+                <input type="text" id="cfgHeaderTitle" class="inp" value="ASISTENCIA DE PARTICIPACIÓN" />
+              </div>
+
+              <div style="margin-bottom:14px;">
+                <label class="lbl">Mensaje de Agradecimiento al Guardar</label>
+                <input type="text" id="cfgGraciasTitulo" class="inp" value="¡Gracias por llenar esta asistencia!" />
+              </div>
+
+              <div style="margin-bottom:16px;">
+                <label class="lbl">Subtítulo del Mensaje de Agradecimiento</label>
+                <input type="text" id="cfgGraciasCuerpo" class="inp" />
+              </div>
+
+              <div style="margin-bottom:18px;">
+                <label class="lbl">URL Base para Vínculos y QR (Opcional)</label>
+                <input type="text" id="cfgBaseUrl" class="inp" placeholder="Dejar vacío para detección automática" />
+                <small id="detectedIpHint" style="color:var(--muted);display:block;margin-top:4px;"></small>
+              </div>
+
+              <button type="button" class="btn-primary" onclick="saveGlobalConfig()">
+                💾 Guardar Cambios de Encabezado y Mensajes
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- MODAL DE CÓDIGO QR Y VÍNCULO INDIVIDUAL POR LISTA -->
+  <div class="modal-backdrop" id="qrModalBackdrop">
+    <div class="qr-modal">
+      <div class="qr-modal-header">
+        <strong>CÓDIGO QR Y VÍNCULO DE ASISTENCIA</strong>
+        <button
+          type="button"
+          onclick="closeQrModal()"
+          style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;"
+        >
+          ✕
+        </button>
+      </div>
+      <div class="qr-modal-body">
+        <h3 id="qrModalTema" style="font-size:1.2rem;color:var(--dark-gray);margin-bottom:6px;"></h3>
+        <p id="qrModalFechaHora" style="color:var(--muted);font-weight:700;font-size:0.88rem;margin-bottom:10px;"></p>
+
+        <div class="qr-frame">
+          <img id="qrModalImg" src="" alt="Código QR" style="width:270px;height:270px;display:block;" />
+        </div>
+
+        <div style="margin:8px 0 12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          <span class="state-pill active" id="qrModalLiveCount">0 Asistencias</span>
+          <span class="state-pill active" id="qrModalStatusPill">Activa</span>
+        </div>
+
+        <div class="link-box" style="justify-content:center;">
+          <span class="link-url" id="qrModalLinkText"></span>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px;">
+          <button type="button" class="btn-primary" onclick="copyCurrentModalLink()">📋 Copiar Vínculo</button>
+          <button type="button" class="btn-dark" onclick="downloadQrPng()">⬇️ Descargar QR (PNG)</button>
+          <a id="qrModalOpenLink" href="#" target="_blank" class="btn-outline">🔗 Abrir Formulario</a>
+          <button type="button" class="btn-outline" onclick="closeQrModal()">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toastMsg"></div>
+
+  <script>
+    const CATALOG_LABELS = {
+      UNIDAD: '🏢 Configurar Lista Desplegable: Unidad',
+      CARGO: '👔 Configurar Lista Desplegable: Cargo',
+      TIPO: '💻 Configurar Lista Desplegable: Tipo (Virtual, Presencial, Ambos)',
+      SEXO: '👤 Configurar Lista Desplegable: Sexo',
+      PROCESO_ISO: '📋 Configurar Lista Desplegable: Proceso ISO',
+      PLANIFICACION: '🗓️ Configurar Lista Desplegable: Planificación',
+    };
+
+    let allEvents = [];
+    let catalogosGrouped = {};
+    let currentCatalogCategory = 'UNIDAD';
+    let currentCalendarDate = new Date();
+    let selectedCalendarDateStr = '';
+    let selectedInspectorEventId = '';
+    let activeQrModalEvent = null;
+    let pickingLogoSide = null;
+
+    function showToast(msg) {
+      const t = document.getElementById('toastMsg');
+      t.textContent = msg;
+      t.style.display = 'block';
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => {
+        t.style.display = 'none';
+      }, 3200);
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-pane').forEach((el) => el.classList.remove('active'));
+      document.querySelectorAll('.nav-tab').forEach((el) => el.classList.remove('active'));
+      document.getElementById(`tab-${tabId}`).classList.add('active');
+      if (btn) btn.classList.add('active');
+
+      if (tabId === 'listas') {
+        renderCalendar();
+        renderCalendarInspector();
+      } else if (tabId === 'basedatos') {
+        loadCentralDatabase();
+      }
+    }
+
+    function setInitialFormDateTime() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('evFecha').value = `${y}-${m}-${d}`;
+      document.getElementById('evHora').value = `${hh}:${mm}`;
+    }
+
+    // ── Cargar Información de Recursos y Configuración ──
+    async function loadSystemInfoAndConfig() {
+      try {
+        const [sysRes, cfgRes] = await Promise.all([
+          fetch('/api/system-info'),
+          fetch('/api/config'),
+        ]);
+        const sys = await sysRes.json();
+        const cfg = await cfgRes.json();
+
+        document.getElementById('sysCpuInfo').innerHTML = `CPU: <b>${sys.cpuCores} núcleos</b>`;
+        document.getElementById('sysRamInfo').innerHTML = `RAM: <b>${sys.memoryUsedMB}/${sys.memoryTotalMB} MB</b>`;
+        document.getElementById('sysNetInfo').innerHTML = `Servidor: <b>${sys.effectiveBaseUrl}</b>`;
+
+        document.getElementById('previewHeaderTitle').textContent =
+          (cfg.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN').toUpperCase();
+        if (cfg.logo_izquierdo) document.getElementById('previewLeftLogo').src = cfg.logo_izquierdo;
+        if (cfg.logo_derecho) document.getElementById('previewRightLogo').src = cfg.logo_derecho;
+
+        document.getElementById('cfgHeaderTitle').value =
+          (cfg.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN').toUpperCase();
+        document.getElementById('cfgGraciasTitulo').value =
+          cfg.mensaje_gracias_titulo || '¡Gracias por llenar esta asistencia!';
+        document.getElementById('cfgGraciasCuerpo').value = cfg.mensaje_gracias_cuerpo || '';
+        document.getElementById('cfgBaseUrl').value = cfg.base_url || '';
+        document.getElementById('detectedIpHint').textContent = `URL activa: ${sys.effectiveBaseUrl}`;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ── Cargar los 6 Catálogos Desplegables ──
+    async function loadCatalogos() {
+      const res = await fetch('/api/catalogos');
+      const data = await res.json();
+      catalogosGrouped = data.grouped || {};
+
+      for (const cat of Object.keys(CATALOG_LABELS)) {
+        const list = catalogosGrouped[cat] || [];
+        const badge = document.getElementById(`catCount-${cat}`);
+        if (badge) badge.textContent = list.filter((i) => i.activo).length;
+      }
+
+      populateScheduleFormDropdowns();
+      populateDbFilterDropdowns();
+      renderCatalogEditorTable();
+    }
+
+    function populateScheduleFormDropdowns() {
+      const activeOf = (cat) => (catalogosGrouped[cat] || []).filter((i) => i.activo);
+
+      // Dirección que Organiza (vinculado a UNIDAD)
+      const dirSelect = document.getElementById('evDireccion');
+      const prevDir = dirSelect.value;
+      const unidades = activeOf('UNIDAD');
+      dirSelect.innerHTML = '<option value="">-- Seleccione la Dirección / Unidad --</option>';
+      for (const u of unidades) {
+        const opt = document.createElement('option');
+        opt.value = u.nombre;
+        opt.textContent = u.codigo ? `${u.nombre} (${u.codigo})` : u.nombre;
+        dirSelect.appendChild(opt);
+      }
+      if (prevDir) dirSelect.value = prevDir;
+
+      // Unidades Invitadas (1 a más — Checkboxes vinculados a UNIDAD)
+      const checksContainer = document.getElementById('invitedUnitsCheckboxes');
+      const previouslyChecked = new Set(
+        Array.from(checksContainer.querySelectorAll('input[type=checkbox]:checked')).map((c) => c.value)
+      );
+      checksContainer.innerHTML = unidades
+        .map(
+          (u) => `
+        <label class="unit-check-item">
+          <input
+            type="checkbox"
+            name="unidades_invitadas"
+            value="${escapeHtml(u.nombre)}"
+            ${previouslyChecked.has(u.nombre) ? 'checked' : ''}
+            onchange="updateInvitedUnitsCounter()"
+          />
+          <span>${escapeHtml(u.nombre)}</span>
+        </label>
+      `
+        )
+        .join('');
+      updateInvitedUnitsCounter();
+
+      // Tipo (Virtual, Presencial, Ambos)
+      const tipoSelect = document.getElementById('evTipo');
+      const tipos = activeOf('TIPO');
+      tipoSelect.innerHTML = tipos
+        .map((t) => `<option value="${escapeHtml(t.nombre)}">${escapeHtml(t.nombre)}</option>`)
+        .join('');
+
+      // Proceso ISO
+      const procSelect = document.getElementById('evProcesoIso');
+      const procesos = activeOf('PROCESO_ISO');
+      procSelect.innerHTML = '<option value="">-- Seleccione Proceso ISO --</option>';
+      for (const p of procesos) {
+        const opt = document.createElement('option');
+        opt.value = p.nombre;
+        opt.textContent = p.nombre;
+        procSelect.appendChild(opt);
+      }
+
+      // Planificación
+      const planSelect = document.getElementById('evPlanificacion');
+      const planes = activeOf('PLANIFICACION');
+      planSelect.innerHTML = '<option value="">-- Seleccione Planificación --</option>';
+      for (const pl of planes) {
+        const opt = document.createElement('option');
+        opt.value = pl.nombre;
+        opt.textContent = pl.nombre;
+        planSelect.appendChild(opt);
+      }
+    }
+
+    function updateInvitedUnitsCounter() {
+      const checked = document.querySelectorAll('#invitedUnitsCheckboxes input[type=checkbox]:checked').length;
+      document.getElementById('selectedUnitsCounter').textContent =
+        `${checked} ${checked === 1 ? 'unidad seleccionada' : 'unidades seleccionadas'}`;
+    }
+
+    function selectAllInvitedUnits(state) {
+      document
+        .querySelectorAll('#invitedUnitsCheckboxes input[type=checkbox]')
+        .forEach((cb) => (cb.checked = state));
+      updateInvitedUnitsCounter();
+    }
+
+    function populateDbFilterDropdowns() {
+      const unidades = catalogosGrouped.UNIDAD || [];
+      const uSel = document.getElementById('dbFilterUnidad');
+      const prevU = uSel.value;
+      uSel.innerHTML = '<option value="">-- Todas las Unidades --</option>';
+      for (const u of unidades) {
+        uSel.innerHTML += `<option value="${escapeHtml(u.nombre)}">${escapeHtml(u.nombre)}</option>`;
+      }
+      uSel.value = prevU;
+
+      const procesos = catalogosGrouped.PROCESO_ISO || [];
+      const pSel = document.getElementById('dbFilterProceso');
+      const prevP = pSel.value;
+      pSel.innerHTML = '<option value="">-- Todos los Procesos --</option>';
+      for (const p of procesos) {
+        pSel.innerHTML += `<option value="${escapeHtml(p.nombre)}">${escapeHtml(p.nombre)}</option>`;
+      }
+      pSel.value = prevP;
+    }
+
+    // ── Pestaña 1: Crear Reunión ──
+    document.getElementById('createEventForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const invitedUnits = Array.from(
+        document.querySelectorAll('#invitedUnitsCheckboxes input[type=checkbox]:checked')
+      ).map((cb) => cb.value);
+
+      if (invitedUnits.length === 0) {
+        alert('Por favor seleccione al menos 1 Unidad Invitada.');
+        return;
+      }
+
+      const payload = {
+        fecha: document.getElementById('evFecha').value,
+        hora: document.getElementById('evHora').value,
+        tema: document.getElementById('evTema').value.trim(),
+        direccion_organiza: document.getElementById('evDireccion').value,
+        unidades_invitadas: invitedUnits,
+        lugar: document.getElementById('evLugar').value.trim(),
+        tipo: document.getElementById('evTipo').value,
+        proceso_iso: document.getElementById('evProcesoIso').value,
+        planificacion: document.getElementById('evPlanificacion').value,
+        duracion_ventana_min: 30,
+      };
+
+      const res = await fetch('/api/eventos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'No se pudo programar la reunión.');
+        return;
+      }
+
+      document.getElementById('evTema').value = '';
+      document.getElementById('evLugar').value = '';
+      selectAllInvitedUnits(false);
+
+      showToast('Reunión programada con éxito. Vínculo y QR generados.');
+      await loadEventos();
+      renderNewlyCreatedEvent(data.evento);
+    });
+
+    function renderNewlyCreatedEvent(ev) {
+      const box = document.getElementById('newlyCreatedBody');
+      box.innerHTML = `
+        <div style="text-align:center;">
+          <span class="state-pill active" style="margin-bottom:8px;">✓ Reunión Calendarizada</span>
+          <h3 style="font-size:1.15rem;color:var(--dark-gray);margin-bottom:4px;">${escapeHtml(ev.tema)}</h3>
+          <p style="font-size:0.84rem;color:var(--muted);font-weight:700;margin-bottom:10px;">
+            📅 ${escapeHtml(ev.fecha)} | ⏰ ${escapeHtml(ev.hora)} (Se desactiva a las ${escapeHtml(ev.hora_cierre)})
+          </p>
+          <div class="qr-frame" style="padding:10px;">
+            <img src="${ev.qr_svg_url}" alt="QR" style="width:210px;height:210px;display:block;" />
+          </div>
+          <div class="link-box">
+            <a href="${escapeHtml(ev.vinculo)}" target="_blank" class="link-url">${escapeHtml(ev.vinculo)}</a>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;">
+            <button type="button" class="btn-primary" onclick="copyText('${escapeHtml(ev.vinculo)}')">
+              📋 Copiar Vínculo
+            </button>
+            <button type="button" class="btn-dark" onclick="openQrModal('${ev.id}')">
+              📱 Ampliar / Descargar QR
+            </button>
+            <button
+              type="button"
+              class="btn-outline"
+              onclick="goToEventInCalendar('${ev.id}', '${ev.fecha}')"
+            >
+              🗓️ Ver en Calendario
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function goToEventInCalendar(eventId, fechaStr) {
+      selectedCalendarDateStr = fechaStr;
+      selectedInspectorEventId = eventId;
+      const parts = fechaStr.split('-').map(Number);
+      if (parts.length === 3) {
+        currentCalendarDate = new Date(parts[0], parts[1] - 1, 1);
+      }
+      switchTab('listas', document.querySelector('[data-tab=listas]'));
+    }
+
+    // ── Pestaña 2: Listas Generadas en Estilo Calendario ──
+    async function loadEventos() {
+      const res = await fetch('/api/eventos');
+      const data = await res.json();
+      allEvents = data.eventos || [];
+
+      document.getElementById('badgeEventosCount').textContent = allEvents.length;
+
+      // Poblar selector de eventos en Base de Datos
+      const evFilter = document.getElementById('dbFilterEvento');
+      const prevVal = evFilter.value;
+      evFilter.innerHTML = '<option value="">-- Todas las Listas --</option>';
+      for (const ev of allEvents) {
+        evFilter.innerHTML += `<option value="${ev.id}">${escapeHtml(ev.fecha)} (${escapeHtml(ev.hora)}) — ${escapeHtml(ev.tema)}</option>`;
+      }
+      evFilter.value = prevVal;
+
+      renderCalendar();
+      renderCalendarInspector();
+
+      if (activeQrModalEvent) {
+        const refreshed = allEvents.find((e) => e.id === activeQrModalEvent.id);
+        if (refreshed) updateQrModalContent(refreshed);
+      }
+    }
+
+    function renderCalendar() {
+      const grid = document.getElementById('calendarGrid');
+      const year = currentCalendarDate.getFullYear();
+      const month = currentCalendarDate.getMonth();
+
+      const monthNames = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+      ];
+      document.getElementById('calMonthLabel').textContent = `${monthNames[month]} ${year}`;
+
+      const weekdays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+      let html = weekdays.map((w) => `<div class="full-cal-weekday">${w}</div>`).join('');
+
+      const firstDay = new Date(year, month, 1);
+      const startOffset = (firstDay.getDay() + 6) % 7;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+      for (let i = 0; i < startOffset; i++) {
+        html += `<div class="full-cal-cell other-month"></div>`;
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayEvents = allEvents
+          .filter((e) => e.fecha === dateStr)
+          .sort((a, b) => a.hora.localeCompare(b.hora));
+
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === selectedCalendarDateStr;
+
+        const chipsHtml = dayEvents
+          .map(
+            (ev) => `
+          <div
+            class="cal-event-chip ${ev.activa ? '' : 'expired-chip'}"
+            onclick="event.stopPropagation(); inspectSingleEvent('${ev.id}', '${dateStr}')"
+            title="${escapeHtml(ev.hora)} - ${escapeHtml(ev.tema)} (${ev.etiqueta_estado})"
+          >
+            ${escapeHtml(ev.hora)} • ${escapeHtml(ev.tema)}
+          </div>
+        `
+          )
+          .join('');
+
+        html += `
+          <div
+            class="full-cal-cell ${isToday ? 'today-cell' : ''} ${isSelected ? 'selected-cell' : ''}"
+            onclick="selectDayOnCalendar('${dateStr}')"
+          >
+            <div class="cal-day-num">
+              <span>${day}</span>
+              ${isToday ? '<span class="today-badge">HOY</span>' : ''}
+            </div>
+            ${chipsHtml}
+          </div>
+        `;
+      }
+
+      grid.innerHTML = html;
+    }
+
+    function changeMonth(delta) {
+      currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
+      renderCalendar();
+    }
+
+    function goToTodayCalendar() {
+      currentCalendarDate = new Date();
+      selectedCalendarDateStr = '';
+      selectedInspectorEventId = '';
+      renderCalendar();
+      renderCalendarInspector();
+    }
+
+    function selectDayOnCalendar(dateStr) {
+      selectedCalendarDateStr = dateStr;
+      selectedInspectorEventId = '';
+      renderCalendar();
+      renderCalendarInspector();
+    }
+
+    function inspectSingleEvent(eventId, dateStr) {
+      selectedCalendarDateStr = dateStr;
+      selectedInspectorEventId = eventId;
+      renderCalendar();
+      renderCalendarInspector();
+    }
+
+    function clearCalendarSelection() {
+      selectedCalendarDateStr = '';
+      selectedInspectorEventId = '';
+      renderCalendar();
+      renderCalendarInspector();
+    }
+
+    function renderCalendarInspector() {
+      const container = document.getElementById('calendarInspectorBody');
+      const headerTitle = document.getElementById('inspectorHeaderTitle');
+
+      let list = allEvents;
+      if (selectedInspectorEventId) {
+        list = allEvents.filter((e) => e.id === selectedInspectorEventId);
+        headerTitle.textContent = '📋 Reunión Seleccionada';
+      } else if (selectedCalendarDateStr) {
+        list = allEvents.filter((e) => e.fecha === selectedCalendarDateStr);
+        headerTitle.textContent = `📋 Listas del ${selectedCalendarDateStr} (${list.length})`;
+      } else {
+        headerTitle.textContent = `📋 Todas las Listas (${allEvents.length})`;
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center;padding:30px 14px;color:var(--muted);">
+            No hay reuniones programadas en esta fecha.
+            <div style="margin-top:12px;">
+              <button
+                type="button"
+                class="btn-primary"
+                onclick="prefillDateAndGoSchedule('${selectedCalendarDateStr}')"
+              >
+                ➕ Programar Reunión en esta Fecha
+              </button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = list
+        .map((ev) => {
+          const invitadas = (ev.unidades_invitadas_lista || []).join(', ') || 'General';
+          return `
+          <div class="day-inspector-card ${ev.activa ? '' : 'expired'}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+              <strong style="font-size:0.98rem;color:var(--dark-gray);">${escapeHtml(ev.tema)}</strong>
+              <span class="state-pill ${ev.activa ? 'active' : 'expired'}">
+                ${escapeHtml(ev.etiqueta_estado)}
+              </span>
+            </div>
+
+            <div style="font-size:0.8rem;color:var(--slate);line-height:1.55;margin-bottom:10px;">
+              <div>📅 <b>Fecha:</b> ${escapeHtml(ev.fecha)} &nbsp;|&nbsp; ⏰ <b>Hora:</b> ${escapeHtml(ev.hora)} (Cierra: ${escapeHtml(ev.hora_cierre)})</div>
+              <div>🏢 <b>Organiza:</b> ${escapeHtml(ev.direccion_organiza || '-')}</div>
+              <div>📍 <b>Lugar:</b> ${escapeHtml(ev.lugar || '-')} &nbsp;|&nbsp; 💻 <b>Tipo:</b> ${escapeHtml(ev.tipo || 'Presencial')}</div>
+              <div>📋 <b>Proceso ISO:</b> ${escapeHtml(ev.proceso_iso || '-')}</div>
+              <div>🗓️ <b>Planificación:</b> ${escapeHtml(ev.planificacion || '-')}</div>
+              <div>👥 <b>Unidades Invitadas:</b> ${escapeHtml(invitadas)}</div>
+              <div>✍️ <b>Asistencias registradas:</b> <strong style="color:var(--primary);">${ev.total_asistencias}</strong></div>
+            </div>
+
+            <div class="link-box">
+              <a href="${escapeHtml(ev.vinculo)}" target="_blank" class="link-url">${escapeHtml(ev.vinculo)}</a>
+            </div>
+
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button type="button" class="btn-primary" style="padding:7px 11px;font-size:0.78rem;" onclick="openQrModal('${ev.id}')">
+                📱 Ver QR y Vínculo
+              </button>
+              <button type="button" class="btn-outline" style="padding:7px 11px;font-size:0.78rem;" onclick="copyText('${escapeHtml(ev.vinculo)}')">
+                📋 Copiar Vínculo
+              </button>
+              <a href="/asistencia/${encodeURIComponent(ev.token)}" target="_blank" class="btn-dark" style="padding:7px 11px;font-size:0.78rem;">
+                ✍️ Abrir Lista
+              </a>
+              <a href="/acta/${encodeURIComponent(ev.token)}" target="_blank" class="btn-outline" style="padding:7px 11px;font-size:0.78rem;">
+                🖨️ Acta PDF
+              </a>
+              <button type="button" class="btn-outline" style="padding:7px 11px;font-size:0.78rem;" onclick="rescheduleNowPlus30('${ev.id}')" title="Reactivar por 30 minutos desde ahora">
+                🔄 +30m
+              </button>
+              <button type="button" class="btn-outline" style="padding:7px 11px;font-size:0.78rem;color:#dc2626;" onclick="deleteEvento('${ev.id}')">
+                🗑️
+              </button>
+            </div>
+          </div>
+        `;
+        })
+        .join('');
+    }
+
+    function prefillDateAndGoSchedule(dateStr) {
+      if (dateStr) document.getElementById('evFecha').value = dateStr;
+      switchTab('programar', document.querySelector('[data-tab=programar]'));
+    }
+
+    async function rescheduleNowPlus30(eventoId) {
+      const now = new Date();
+      const fecha = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const hora = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const res = await fetch(`/api/eventos/${eventoId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fecha, hora, estado_manual: 'AUTO' }),
+      });
+      if (res.ok) {
+        showToast('Reunión actualizada a la hora actual (+30 min activos).');
+        loadEventos();
+      }
+    }
+
+    async function deleteEvento(eventoId) {
+      if (!confirm('¿Eliminar esta reunión y su lista asociada?')) return;
+      await fetch(`/api/eventos/${eventoId}`, { method: 'DELETE' });
+      showToast('Reunión eliminada.');
+      loadEventos();
+      loadCentralDatabase();
+    }
+
+    // ── Pestaña 3: Base de Datos General ──
+    async function loadCentralDatabase() {
+      const q = document.getElementById('dbFilterSearch').value.trim();
+      const eventoId = document.getElementById('dbFilterEvento').value;
+      const unidad = document.getElementById('dbFilterUnidad').value;
+      const procesoIso = document.getElementById('dbFilterProceso').value;
+      const fecha = document.getElementById('dbFilterFecha').value;
+
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (eventoId) params.set('evento_id', eventoId);
+      if (unidad) params.set('unidad', unidad);
+      if (procesoIso) params.set('proceso_iso', procesoIso);
+      if (fecha) params.set('fecha', fecha);
+
+      const res = await fetch(`/api/asistencias?${params.toString()}`);
+      const data = await res.json();
+      const list = data.asistencias || [];
+
+      if (!q && !eventoId && !unidad && !procesoIso && !fecha) {
+        document.getElementById('badgeAsistenciasCount').textContent = list.length;
+      }
+
+      const tbody = document.getElementById('centralDbTableBody');
+      if (list.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" style="text-align:center;padding:30px;color:var(--muted);">
+              No hay registros de asistencia para los filtros seleccionados.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = list
+        .map(
+          (row) => `
+        <tr>
+          <td><strong>#${row.id}</strong></td>
+          <td>
+            <strong>${escapeHtml(row.fecha)}</strong><br/>
+            <small style="color:var(--muted)">${escapeHtml(row.hora)} (${escapeHtml(row.evento_tipo || 'Presencial')})</small>
+          </td>
+          <td>
+            <strong>${escapeHtml(row.tema)}</strong><br/>
+            <small style="color:var(--muted)">📍 ${escapeHtml(row.evento_lugar || '-')}</small>
+          </td>
+          <td>
+            <div style="font-size:0.8rem;font-weight:700;">${escapeHtml(row.evento_direccion_organiza || '-')}</div>
+            <small style="color:var(--primary-dark)">${escapeHtml(row.evento_proceso_iso || '-')}</small>
+          </td>
+          <td><strong>${escapeHtml(row.nombre)}</strong></td>
+          <td><span class="state-pill active">${escapeHtml(row.unidad)}</span></td>
+          <td>
+            <div>${escapeHtml(row.cargo || '-')}</div>
+            <small style="color:var(--muted)">${escapeHtml(row.sexo || '-')}</small>
+          </td>
+          <td><img class="sig-thumb" src="${row.firma_base64}" alt="Firma" /></td>
+          <td>
+            <button
+              type="button"
+              class="btn-outline"
+              style="padding:4px 8px;font-size:0.74rem;color:#dc2626;"
+              onclick="deleteAsistenciaRecord(${row.id})"
+            >
+              Eliminar
+            </button>
+          </td>
+        </tr>
+      `
+        )
+        .join('');
+    }
+
+    function resetDbFilters() {
+      document.getElementById('dbFilterSearch').value = '';
+      document.getElementById('dbFilterEvento').value = '';
+      document.getElementById('dbFilterUnidad').value = '';
+      document.getElementById('dbFilterProceso').value = '';
+      document.getElementById('dbFilterFecha').value = '';
+      loadCentralDatabase();
+    }
+
+    function exportFilteredCSV() {
+      const eventoId = document.getElementById('dbFilterEvento').value;
+      const unidad = document.getElementById('dbFilterUnidad').value;
+      const params = new URLSearchParams();
+      if (eventoId) params.set('evento_id', eventoId);
+      if (unidad) params.set('unidad', unidad);
+      window.location.href = `/api/export/csv?${params.toString()}`;
+    }
+
+    async function deleteAsistenciaRecord(id) {
+      if (!confirm('¿Eliminar este registro de asistencia?')) return;
+      await fetch(`/api/asistencias/${id}`, { method: 'DELETE' });
+      loadCentralDatabase();
+      loadEventos();
+    }
+
+    // ── Pestaña 4: Configuración de todas las Listas Desplegables ──
+    function selectCatalogCategory(category, btn) {
+      document.querySelectorAll('.catalog-menu-btn').forEach((b) => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+
+      if (category === 'HEADER_LOGOS') {
+        document.getElementById('catalogEditorCard').style.display = 'none';
+        document.getElementById('headerLogosConfigCard').style.display = 'block';
+        return;
+      }
+
+      document.getElementById('headerLogosConfigCard').style.display = 'none';
+      document.getElementById('catalogEditorCard').style.display = 'block';
+      currentCatalogCategory = category;
+      document.getElementById('catalogEditorTitle').textContent = CATALOG_LABELS[category] || category;
+      renderCatalogEditorTable();
+    }
+
+    function renderCatalogEditorTable() {
+      const items = catalogosGrouped[currentCatalogCategory] || [];
+      const tbody = document.getElementById('catalogItemsTableBody');
+      if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">Sin opciones registradas.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = items
+        .map(
+          (item) => `
+        <tr>
+          <td><strong>${escapeHtml(item.nombre)}</strong></td>
+          <td>${escapeHtml(item.codigo || '-')}</td>
+          <td>
+            <span class="state-pill ${item.activo ? 'active' : 'expired'}">
+              ${item.activo ? 'Activa' : 'Inactiva'}
+            </span>
+          </td>
+          <td style="display:flex;gap:6px;">
+            <button
+              type="button"
+              class="btn-outline"
+              style="padding:4px 9px;font-size:0.75rem;"
+              onclick="editCatalogItem(${item.id}, '${escapeHtml(item.nombre)}', '${escapeHtml(item.codigo || '')}')"
+            >
+              ✎ Editar
+            </button>
+            <button
+              type="button"
+              class="btn-outline"
+              style="padding:4px 9px;font-size:0.75rem;"
+              onclick="toggleCatalogItem(${item.id}, ${item.activo ? 0 : 1})"
+            >
+              ${item.activo ? 'Ocultar' : 'Activar'}
+            </button>
+            <button
+              type="button"
+              class="btn-outline"
+              style="padding:4px 9px;font-size:0.75rem;color:#dc2626;"
+              onclick="deleteCatalogItem(${item.id})"
+            >
+              Eliminar
+            </button>
+          </td>
+        </tr>
+      `
+        )
+        .join('');
+    }
+
+    document.getElementById('addCatalogItemForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nombre = document.getElementById('newCatNombre').value.trim();
+      const codigo = document.getElementById('newCatCodigo').value.trim();
+      if (!nombre) return;
+
+      const res = await fetch('/api/catalogos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categoria: currentCatalogCategory,
+          nombre,
+          codigo,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Error al agregar opción');
+        return;
+      }
+      document.getElementById('newCatNombre').value = '';
+      document.getElementById('newCatCodigo').value = '';
+      showToast('Opción agregada a la lista desplegable.');
+      loadCatalogos();
+    });
+
+    async function editCatalogItem(id, currentNombre, currentCodigo) {
+      const nuevoNombre = prompt('Editar nombre de la opción:', currentNombre);
+      if (nuevoNombre === null || !nuevoNombre.trim()) return;
+      const nuevoCodigo = prompt('Editar código / abreviatura (opcional):', currentCodigo);
+      await fetch(`/api/catalogos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: nuevoNombre.trim(),
+          codigo: nuevoCodigo !== null ? nuevoCodigo.trim() : currentCodigo,
+        }),
+      });
+      showToast('Opción actualizada.');
+      loadCatalogos();
+    }
+
+    async function toggleCatalogItem(id, nuevoEstado) {
+      await fetch(`/api/catalogos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activo: nuevoEstado }),
+      });
+      loadCatalogos();
+    }
+
+    async function deleteCatalogItem(id) {
+      if (!confirm('¿Eliminar esta opción de la lista desplegable?')) return;
+      await fetch(`/api/catalogos/${id}`, { method: 'DELETE' });
+      loadCatalogos();
+    }
+
+    function openLogoFilePicker(side) {
+      pickingLogoSide = side;
+      document.getElementById('globalLogoFileInput').click();
+    }
+
+    document.getElementById('globalLogoFileInput').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file || !pickingLogoSide) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const res = await fetch('/api/upload-logo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ side: pickingLogoSide, dataUrl: reader.result }),
+        });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          if (pickingLogoSide === 'left') {
+            document.getElementById('previewLeftLogo').src = data.url;
+          } else {
+            document.getElementById('previewRightLogo').src = data.url;
+          }
+          showToast('Logo del encabezado de asistencias actualizado.');
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    async function saveGlobalConfig() {
+      const payload = {
+        titulo_header: document.getElementById('cfgHeaderTitle').value.trim().toUpperCase(),
+        mensaje_gracias_titulo: document.getElementById('cfgGraciasTitulo').value.trim(),
+        mensaje_gracias_cuerpo: document.getElementById('cfgGraciasCuerpo').value.trim(),
+        base_url: document.getElementById('cfgBaseUrl').value.trim(),
+      };
+      const res = await fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        showToast('Configuración guardada correctamente.');
+        loadSystemInfoAndConfig();
+        loadEventos();
+      }
+    }
+
+    // ── Modal QR ──
+    function openQrModal(eventoId) {
+      const ev = allEvents.find((e) => e.id === eventoId);
+      if (!ev) return;
+      activeQrModalEvent = ev;
+      updateQrModalContent(ev);
+      document.getElementById('qrModalBackdrop').classList.add('open');
+    }
+
+    function updateQrModalContent(ev) {
+      document.getElementById('qrModalTema').textContent = ev.tema;
+      document.getElementById('qrModalFechaHora').textContent =
+        `Fecha: ${ev.fecha} | Hora: ${ev.hora} | Cierre (+30 min): ${ev.hora_cierre}`;
+      document.getElementById('qrModalImg').src = ev.qr_svg_url;
+      document.getElementById('qrModalLinkText').textContent = ev.vinculo;
+      document.getElementById('qrModalOpenLink').href = `/asistencia/${encodeURIComponent(ev.token)}`;
+      document.getElementById('qrModalLiveCount').textContent =
+        `${ev.total_asistencias} Asistencias Registradas`;
+
+      const pill = document.getElementById('qrModalStatusPill');
+      pill.textContent = ev.etiqueta_estado;
+      pill.className = `state-pill ${ev.activa ? 'active' : 'expired'}`;
+    }
+
+    function closeQrModal() {
+      activeQrModalEvent = null;
+      document.getElementById('qrModalBackdrop').classList.remove('open');
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Vínculo copiado al portapapeles.');
+      });
+    }
+
+    function copyCurrentModalLink() {
+      if (!activeQrModalEvent) return;
+      copyText(activeQrModalEvent.vinculo);
+    }
+
+    function downloadQrPng() {
+      if (!activeQrModalEvent) return;
+      const img = document.getElementById('qrModalImg');
+      const canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = 680;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#0099a8';
+      ctx.fillRect(0, 0, canvas.width, 16);
+
+      ctx.fillStyle = '#1f2937';
+      ctx.font = 'bold 22px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('ASISTENCIA DE PARTICIPACIÓN', 300, 52);
+
+      ctx.fillStyle = '#0099a8';
+      ctx.font = 'bold 16px Segoe UI, sans-serif';
+      const shortTema =
+        activeQrModalEvent.tema.length > 48
+          ? activeQrModalEvent.tema.slice(0, 48) + '...'
+          : activeQrModalEvent.tema;
+      ctx.fillText(shortTema, 300, 82);
+
+      const qrImage = new Image();
+      qrImage.crossOrigin = 'anonymous';
+      qrImage.onload = () => {
+        ctx.drawImage(qrImage, 90, 100, 420, 420);
+        ctx.fillStyle = '#334155';
+        ctx.font = 'bold 15px Segoe UI, sans-serif';
+        ctx.fillText(
+          `Fecha: ${activeQrModalEvent.fecha}  |  Hora: ${activeQrModalEvent.hora} (Cierra ${activeQrModalEvent.hora_cierre})`,
+          300,
+          555
+        );
+        ctx.fillStyle = '#0099a8';
+        ctx.font = '13px Consolas, monospace';
+        ctx.fillText(activeQrModalEvent.vinculo, 300, 590);
+
+        const a = document.createElement('a');
+        a.download = `QR-${activeQrModalEvent.token}.png`;
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+      };
+      qrImage.src = img.src;
+    }
+
+    function setupRealtimeSSE() {
+      const es = new EventSource('/api/stream');
+      es.addEventListener('nueva_asistencia', (e) => {
+        const data = JSON.parse(e.data);
+        showToast(`✍️ Nueva asistencia: ${data.asistencia.nombre} (${data.asistencia.unidad})`);
+        loadEventos();
+        loadCentralDatabase();
+      });
+      es.addEventListener('evento_actualizado', () => loadEventos());
+      es.addEventListener('catalogo_actualizado', () => loadCatalogos());
+    }
+
+    setInterval(() => loadEventos(), 20000);
+
+    setInitialFormDateTime();
+    loadSystemInfoAndConfig();
+    loadCatalogos();
+    loadEventos();
+    loadCentralDatabase();
+    setupRealtimeSSE();
+  </script>
+</body>
+</html>
