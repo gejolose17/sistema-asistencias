@@ -980,6 +980,10 @@
         <button class="nav-tab" data-tab="configuracion" onclick="switchTab('configuracion', this)">
           <span class="tab-label"><span>⚙️</span> Configuración</span>
         </button>
+        <button class="nav-tab" data-tab="papelera" onclick="switchTab('papelera', this)">
+          <span class="tab-label"><span>🗑️</span> Papelera</span>
+          <span class="badge-count" id="badgePapeleraCount">0</span>
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -1407,6 +1411,132 @@
         </div>
       </div>
     </section>
+
+    <!-- ════════════════════════════════════════════════════════════════════════
+         PESTAÑA 5: PAPELERA DE RECICLAJE
+         ════════════════════════════════════════════════════════════════════════ -->
+    <section class="tab-pane" id="tab-papelera">
+      <div class="panel-card">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+          <div>
+            <h2 style="margin:0;display:flex;align-items:center;gap:8px;">
+              <span>🗑️</span> Papelera de Reciclaje
+            </h2>
+            <div style="font-size:0.8rem;color:var(--muted);font-weight:400;margin-top:3px;">
+              Restauración y purga definitiva de reuniones y firmas eliminadas
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="btn-outline" style="padding:8px 14px;font-size:0.82rem;" onclick="loadPapelera()">
+              🔄 Actualizar Papelera
+            </button>
+            <button
+              type="button"
+              class="btn-primary"
+              style="background:#dc2626;border-color:#dc2626;padding:8px 16px;font-size:0.82rem;font-weight:700;"
+              onclick="vaciarPapelera()"
+              id="btnVaciarPapelera"
+            >
+              ♻️ Vaciar Papelera Completa
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <!-- Estadísticas / Resumen de Papelera -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;margin-bottom:20px;">
+            <div style="background:#f8fafc;border:1.5px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:14px;">
+              <div style="font-size:2rem;line-height:1;">🗓️</div>
+              <div>
+                <div style="font-size:0.75rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Reuniones en Papelera</div>
+                <div style="font-size:1.45rem;font-weight:800;color:var(--dark-gray);" id="papeleraEventosCount">0</div>
+              </div>
+            </div>
+
+            <div style="background:#f8fafc;border:1.5px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:14px;">
+              <div style="font-size:2rem;line-height:1;">✍️</div>
+              <div>
+                <div style="font-size:0.75rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Asistencias en Papelera</div>
+                <div style="font-size:1.45rem;font-weight:800;color:var(--dark-gray);" id="papeleraAsistenciasCount">0</div>
+              </div>
+            </div>
+
+            <div style="background:#f8fafc;border:1.5px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:14px;">
+              <div style="font-size:2rem;line-height:1;">💡</div>
+              <div style="font-size:0.8rem;color:var(--slate);line-height:1.4;">
+                Los elementos eliminados se conservan protegidos aquí. Puede <b>Restaurarlos</b> para que vuelvan a estar activos o <b>Purgarlos</b> definitivamente.
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 1: REUNIONES ELIMINADAS -->
+          <div style="margin-bottom:28px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:2px solid var(--border);padding-bottom:8px;">
+              <h3 style="font-size:0.98rem;color:var(--dark-gray);display:flex;align-items:center;gap:8px;">
+                <span>🗓️</span> Reuniones y Listas de Asistencia en Papelera
+              </h3>
+              <span class="state-pill active" id="badgePapeleraEvHeader">0 Reuniones</span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="db-table">
+                <thead>
+                  <tr>
+                    <th style="width:70px;">ID</th>
+                    <th style="width:130px;">Fecha / Hora</th>
+                    <th>Tema de la Reunión</th>
+                    <th style="width:180px;">Dirección Organiza</th>
+                    <th style="width:90px;text-align:center;">Asistencias</th>
+                    <th style="width:140px;">Eliminado el</th>
+                    <th style="width:200px;text-align:center;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="papeleraEventosTableBody">
+                  <tr>
+                    <td colspan="7" style="text-align:center;padding:26px;color:var(--muted);">
+                      La papelera de reuniones está vacía.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 2: REGISTROS DE ASISTENCIA INDIVIDUALES ELIMINADOS -->
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:2px solid var(--border);padding-bottom:8px;">
+              <h3 style="font-size:0.98rem;color:var(--dark-gray);display:flex;align-items:center;gap:8px;">
+                <span>✍️</span> Registros de Asistencia Individuales en Papelera
+              </h3>
+              <span class="state-pill active" id="badgePapeleraAsisHeader">0 Asistencias</span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="db-table">
+                <thead>
+                  <tr>
+                    <th style="width:70px;">Folio</th>
+                    <th style="width:180px;">Participante</th>
+                    <th>Reunión / Tema</th>
+                    <th style="width:170px;">Unidad</th>
+                    <th style="width:130px;">Cargo / Sexo</th>
+                    <th style="width:140px;">Eliminado el</th>
+                    <th style="width:200px;text-align:center;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="papeleraAsistenciasTableBody">
+                  <tr>
+                    <td colspan="7" style="text-align:center;padding:26px;color:var(--muted);">
+                      La papelera de registros de asistencia está vacía.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
       </div>
     </div>
   </div>
@@ -1575,6 +1705,7 @@
       listas: '🗓️ Listas Generadas — Vista Calendario y Accesos',
       basedatos: '🗄️ Base de Datos Centralizada de Asistencias',
       configuracion: '⚙️ Configuración y Catálogos Desplegables',
+      papelera: '🗑️ Papelera de Reciclaje — Restaurar o Eliminar Definitivamente',
     };
 
     function switchTab(tabId, btn) {
@@ -1595,6 +1726,8 @@
         renderCalendarInspector();
       } else if (tabId === 'basedatos') {
         loadCentralDatabase();
+      } else if (tabId === 'papelera') {
+        loadPapelera();
       }
     }
 
@@ -1878,6 +2011,7 @@
         const refreshed = allEvents.find((e) => e.id === activeQrModalEvent.id);
         if (refreshed) updateQrModalContent(refreshed);
       }
+      loadPapeleraBadge();
     }
 
     function renderCalendar() {
@@ -2088,11 +2222,12 @@
     }
 
     async function deleteEvento(eventoId) {
-      if (!confirm('¿Eliminar esta reunión y su lista asociada?')) return;
+      if (!confirm('¿Mover esta reunión y su lista a la papelera? Podrá restaurarla o eliminarla definitivamente cuando lo desee.')) return;
       await fetch(`/api/eventos/${eventoId}`, { method: 'DELETE' });
-      showToast('Reunión eliminada.');
+      showToast('Reunión enviada a la papelera.');
       loadEventos();
       loadCentralDatabase();
+      loadPapeleraBadge();
     }
 
     // ── Pestaña 3: Base de Datos General ──
@@ -2206,10 +2341,230 @@
     }
 
     async function deleteAsistenciaRecord(id) {
-      if (!confirm('¿Eliminar este registro de asistencia?')) return;
+      if (!confirm('¿Mover este registro de asistencia a la papelera? Podrá restaurarlo o eliminarlo definitivamente cuando lo desee.')) return;
       await fetch(`/api/asistencias/${id}`, { method: 'DELETE' });
+      showToast('Registro de asistencia enviado a la papelera.');
       loadCentralDatabase();
       loadEventos();
+      loadPapeleraBadge();
+    }
+
+    // ── Pestaña 5: Papelera de Reciclaje (Restauración y Purga Definitiva) ──
+    async function loadPapeleraBadge() {
+      try {
+        const res = await fetch('/api/papelera');
+        const data = await res.json();
+        const total = data.total || 0;
+        const b = document.getElementById('badgePapeleraCount');
+        if (b) b.textContent = total;
+      } catch (e) {
+        console.warn('Error cargando conteo de papelera:', e);
+      }
+    }
+
+    async function loadPapelera() {
+      try {
+        const res = await fetch('/api/papelera');
+        const data = await res.json();
+        const eventos = data.eventos || [];
+        const asistencias = data.asistencias || [];
+        const total = data.total !== undefined ? data.total : eventos.length + asistencias.length;
+
+        const badgeNav = document.getElementById('badgePapeleraCount');
+        if (badgeNav) badgeNav.textContent = total;
+
+        const countEv = document.getElementById('papeleraEventosCount');
+        if (countEv) countEv.textContent = eventos.length;
+
+        const countAsis = document.getElementById('papeleraAsistenciasCount');
+        if (countAsis) countAsis.textContent = asistencias.length;
+
+        const badgeEvH = document.getElementById('badgePapeleraEvHeader');
+        if (badgeEvH) badgeEvH.textContent = `${eventos.length} ${eventos.length === 1 ? 'Reunión' : 'Reuniones'}`;
+
+        const badgeAsisH = document.getElementById('badgePapeleraAsisHeader');
+        if (badgeAsisH) badgeAsisH.textContent = `${asistencias.length} ${asistencias.length === 1 ? 'Asistencia' : 'Asistencias'}`;
+
+        // Render Tabla 1: Reuniones en Papelera
+        const tbodyEv = document.getElementById('papeleraEventosTableBody');
+        if (eventos.length === 0) {
+          tbodyEv.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align:center;padding:26px;color:var(--muted);">
+                La papelera de reuniones está vacía.
+              </td>
+            </tr>
+          `;
+        } else {
+          tbodyEv.innerHTML = eventos
+            .map((ev) => {
+              const shortId = ev.id.slice(0, 8);
+              const elimFecha = ev.eliminado_en ? new Date(ev.eliminado_en).toLocaleString('es-NI') : '-';
+              return `
+                <tr>
+                  <td><strong>#${shortId}</strong></td>
+                  <td>
+                    <strong>${escapeHtml(ev.fecha)}</strong><br/>
+                    <small style="color:var(--muted)">${escapeHtml(ev.hora)} (${escapeHtml(ev.tipo || 'Presencial')})</small>
+                  </td>
+                  <td>
+                    <strong style="color:var(--dark-gray);">${escapeHtml(ev.tema)}</strong><br/>
+                    <small style="color:var(--muted)">📍 ${escapeHtml(ev.lugar || '-')}</small>
+                  </td>
+                  <td>
+                    <div style="font-size:0.84rem;font-weight:700;">${escapeHtml(ev.direccion_organiza || '-')}</div>
+                    <small style="color:var(--primary-dark)">${escapeHtml(ev.proceso_iso || '-')}</small>
+                  </td>
+                  <td style="text-align:center;">
+                    <span class="badge-count" style="background:var(--primary);color:#fff;font-size:0.75rem;padding:3px 9px;">
+                      ${ev.total_asistencias || 0}
+                    </span>
+                  </td>
+                  <td><small style="color:var(--muted);">${elimFecha}</small></td>
+                  <td style="text-align:center;">
+                    <div style="display:flex;gap:6px;justify-content:center;">
+                      <button
+                        type="button"
+                        class="btn-primary"
+                        style="padding:6px 10px;font-size:0.76rem;"
+                        onclick="restaurarElemento('evento', '${ev.id}')"
+                        title="Restaurar reunión y reactivar su lista"
+                      >
+                        🔄 Restaurar
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-outline"
+                        style="padding:6px 10px;font-size:0.76rem;color:#dc2626;border-color:#fca5a5;"
+                        onclick="purgarElemento('evento', '${ev.id}')"
+                        title="Eliminar definitivamente esta reunión de la base de datos"
+                      >
+                        ❌ Purgar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            })
+            .join('');
+        }
+
+        // Render Tabla 2: Registros de Asistencia Individuales en Papelera
+        const tbodyAsis = document.getElementById('papeleraAsistenciasTableBody');
+        if (asistencias.length === 0) {
+          tbodyAsis.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align:center;padding:26px;color:var(--muted);">
+                La papelera de registros de asistencia está vacía.
+              </td>
+            </tr>
+          `;
+        } else {
+          tbodyAsis.innerHTML = asistencias
+            .map((a) => {
+              const elimFecha = a.eliminado_en ? new Date(a.eliminado_en).toLocaleString('es-NI') : '-';
+              return `
+                <tr>
+                  <td><strong>#${a.id}</strong></td>
+                  <td>
+                    <strong style="color:var(--dark-gray);">${escapeHtml(a.nombre)}</strong>
+                  </td>
+                  <td>
+                    <strong>${escapeHtml(a.tema || a.evento_tema || '-')}</strong><br/>
+                    <small style="color:var(--muted)">${escapeHtml(a.fecha || a.evento_fecha || '')}</small>
+                  </td>
+                  <td><span class="state-pill active">${escapeHtml(a.unidad || '-')}</span></td>
+                  <td>
+                    <div>${escapeHtml(a.cargo || '-')}</div>
+                    <small style="color:var(--muted)">${escapeHtml(a.sexo || '-')}</small>
+                  </td>
+                  <td><small style="color:var(--muted);">${elimFecha}</small></td>
+                  <td style="text-align:center;">
+                    <div style="display:flex;gap:6px;justify-content:center;">
+                      <button
+                        type="button"
+                        class="btn-primary"
+                        style="padding:6px 10px;font-size:0.76rem;"
+                        onclick="restaurarElemento('asistencia', ${a.id})"
+                        title="Restaurar esta firma y registro de asistencia"
+                      >
+                        🔄 Restaurar
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-outline"
+                        style="padding:6px 10px;font-size:0.76rem;color:#dc2626;border-color:#fca5a5;"
+                        onclick="purgarElemento('asistencia', ${a.id})"
+                        title="Eliminar definitivamente este registro"
+                      >
+                        ❌ Purgar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            })
+            .join('');
+        }
+      } catch (err) {
+        console.error('Error cargando papelera:', err);
+      }
+    }
+
+    async function restaurarElemento(tipo, id) {
+      const res = await fetch('/api/papelera/restaurar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo, id }),
+      });
+      if (res.ok) {
+        showToast(tipo === 'evento' ? 'Reunión restaurada con éxito.' : 'Asistencia restaurada con éxito.');
+        loadPapelera();
+        loadEventos();
+        loadCentralDatabase();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'No se pudo restaurar el elemento.');
+      }
+    }
+
+    async function purgarElemento(tipo, id) {
+      const label = tipo === 'evento' ? 'esta reunión y todas sus firmas asociadas' : 'este registro de asistencia';
+      if (!confirm(`¿Eliminar definitivamente ${label}? Esta acción no se puede deshacer.`)) {
+        return;
+      }
+      const res = await fetch('/api/papelera/purgar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo, id }),
+      });
+      if (res.ok) {
+        showToast('Elemento eliminado definitivamente.');
+        loadPapelera();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'No se pudo purgar el elemento.');
+      }
+    }
+
+    async function vaciarPapelera() {
+      if (!confirm('⚠️ ¿ATENCIÓN: Desea vaciar COMPLETAMENTE la papelera?\\n\\nSe eliminarán de forma definitiva todas las reuniones y registros de asistencia que se encuentren en la papelera sin posibilidad de recuperación.')) {
+        return;
+      }
+      const res = await fetch('/api/papelera/purgar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: 'todo' }),
+      });
+      if (res.ok) {
+        showToast('Papelera vaciada por completo.');
+        loadPapelera();
+        loadEventos();
+        loadCentralDatabase();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'No se pudo vaciar la papelera.');
+      }
     }
 
     // ── Pestaña 4: Configuración de todas las Listas Desplegables ──
@@ -2795,6 +3150,24 @@
       });
       es.addEventListener('evento_actualizado', () => loadEventos());
       es.addEventListener('catalogo_actualizado', () => loadCatalogos());
+      es.addEventListener('papelera_actualizada', () => {
+        loadPapelera();
+        loadPapeleraBadge();
+      });
+      es.addEventListener('evento_restaurado', () => {
+        loadEventos();
+        loadCentralDatabase();
+        loadPapelera();
+      });
+      es.addEventListener('asistencia_restaurada', () => {
+        loadEventos();
+        loadCentralDatabase();
+        loadPapelera();
+      });
+      es.addEventListener('papelera_vaciada', () => {
+        loadPapelera();
+        loadPapeleraBadge();
+      });
     }
 
     setInterval(() => loadEventos(), 20000);
@@ -2804,6 +3177,7 @@
     loadCatalogos();
     loadEventos();
     loadCentralDatabase();
+    loadPapelera();
     setupRealtimeSSE();
   </script>
 </body>

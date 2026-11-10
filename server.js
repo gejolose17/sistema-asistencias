@@ -180,7 +180,7 @@ function serveStaticFile(res, filePath) {
 function buildEventResponse(evento, baseUrl) {
   const status = computeEventStatus(evento);
   const countRow = db
-    .prepare('SELECT COUNT(*) as total FROM asistencias WHERE evento_id = ?')
+    .prepare('SELECT COUNT(*) as total FROM asistencias WHERE evento_id = ? AND COALESCE(eliminado, 0) = 0')
     .get(evento.id);
   const link = `${baseUrl}/asistencia/${encodeURIComponent(evento.token)}`;
   return {
@@ -231,8 +231,10 @@ async function requestHandler(req, res) {
       }
       const ips = getNetworkIPs();
       const baseUrl = getEffectiveBaseUrl(req);
-      const totalEventos = db.prepare('SELECT COUNT(*) as c FROM eventos').get().c;
-      const totalAsistencias = db.prepare('SELECT COUNT(*) as c FROM asistencias').get().c;
+      const totalEventos = db.prepare('SELECT COUNT(*) as c FROM eventos WHERE COALESCE(eliminado, 0) = 0').get().c;
+      const totalAsistencias = db.prepare('SELECT COUNT(*) as c FROM asistencias WHERE COALESCE(eliminado, 0) = 0').get().c;
+      const totalPapeleraEventos = db.prepare('SELECT COUNT(*) as c FROM eventos WHERE COALESCE(eliminado, 0) = 1').get().c;
+      const totalPapeleraAsistencias = db.prepare('SELECT COUNT(*) as c FROM asistencias WHERE COALESCE(eliminado, 0) = 1').get().c;
       const totalUnidades = db
         .prepare("SELECT COUNT(*) as c FROM catalogos WHERE categoria = 'UNIDAD' AND activo = 1")
         .get().c;
@@ -255,6 +257,9 @@ async function requestHandler(req, res) {
           totalEventos,
           totalAsistencias,
           totalUnidades,
+          totalPapelera: totalPapeleraEventos + totalPapeleraAsistencias,
+          totalPapeleraEventos,
+          totalPapeleraAsistencias,
         },
       });
     }
@@ -454,7 +459,9 @@ async function requestHandler(req, res) {
     // ── 5. Gestión de Reuniones / Eventos Calendarizados ─────────────────────
     if (pathname === '/api/eventos' && method === 'GET') {
       const baseUrl = getEffectiveBaseUrl(req);
-      const rows = db.prepare('SELECT * FROM eventos ORDER BY fecha DESC, hora DESC').all();
+      const rows = db
+        .prepare('SELECT * FROM eventos WHERE COALESCE(eliminado, 0) = 0 ORDER BY fecha DESC, hora DESC')
+        .all();
       const eventos = rows.map((ev) => buildEventResponse(ev, baseUrl));
       return sendJSON(res, 200, { eventos, baseUrl });
     }
@@ -594,9 +601,12 @@ async function requestHandler(req, res) {
       }
 
       if (method === 'DELETE') {
-        db.prepare('DELETE FROM eventos WHERE id = ?').run(eventoId);
-        broadcastSSE('evento_eliminado', { id: eventoId });
-        return sendJSON(res, 200, { ok: true });
+        const now = getNowISO();
+        db.prepare('UPDATE eventos SET eliminado = 1, eliminado_en = ? WHERE id = ?').run(now, eventoId);
+        db.prepare('UPDATE asistencias SET eliminado = 1, eliminado_en = ? WHERE evento_id = ?').run(now, eventoId);
+        broadcastSSE('evento_eliminado', { id: eventoId, papelera: true });
+        broadcastSSE('papelera_actualizada', {});
+        return sendJSON(res, 200, { ok: true, softDeleted: true });
       }
     }
 
@@ -637,8 +647,8 @@ async function requestHandler(req, res) {
     if (pubEventoMatch && method === 'GET') {
       const token = pubEventoMatch[1];
       const evento = db.prepare('SELECT * FROM eventos WHERE token = ? OR id = ?').get(token, token);
-      if (!evento) {
-        return sendJSON(res, 404, { error: 'El vínculo de esta lista de asistencia no existe o fue eliminado.' });
+      if (!evento || evento.eliminado === 1) {
+        return sendJSON(res, 404, { error: 'El vínculo de esta lista de asistencia no existe o fue enviado a la papelera.' });
       }
 
       const status = buildEventResponse(evento, getEffectiveBaseUrl(req));
@@ -667,8 +677,8 @@ async function requestHandler(req, res) {
     if (pubSubmitMatch && method === 'POST') {
       const token = pubSubmitMatch[1];
       const evento = db.prepare('SELECT * FROM eventos WHERE token = ? OR id = ?').get(token, token);
-      if (!evento) {
-        return sendJSON(res, 404, { error: 'Lista de asistencia no encontrada.' });
+      if (!evento || evento.eliminado === 1) {
+        return sendJSON(res, 404, { error: 'Lista de asistencia no encontrada o fue enviada a la papelera.' });
       }
 
       const status = computeEventStatus(evento);
@@ -769,7 +779,10 @@ async function requestHandler(req, res) {
       const fecha = parsedUrl.searchParams.get('fecha') || '';
       const q = (parsedUrl.searchParams.get('q') || '').trim();
 
-      let whereClauses = [];
+      let whereClauses = [
+        'COALESCE(a.eliminado, 0) = 0',
+        '(e.id IS NULL OR COALESCE(e.eliminado, 0) = 0)',
+      ];
       let params = [];
 
       if (eventoId) {
@@ -833,16 +846,104 @@ async function requestHandler(req, res) {
     const deleteAsistenciaMatch = pathname.match(/^\/api\/asistencias\/(\d+)$/);
     if (deleteAsistenciaMatch && method === 'DELETE') {
       const id = Number(deleteAsistenciaMatch[1]);
-      db.prepare('DELETE FROM asistencias WHERE id = ?').run(id);
-      broadcastSSE('asistencia_eliminada', { id });
-      return sendJSON(res, 200, { ok: true });
+      const now = getNowISO();
+      db.prepare('UPDATE asistencias SET eliminado = 1, eliminado_en = ? WHERE id = ?').run(now, id);
+      broadcastSSE('asistencia_eliminada', { id, papelera: true });
+      broadcastSSE('papelera_actualizada', {});
+      return sendJSON(res, 200, { ok: true, softDeleted: true });
+    }
+
+    // ── 8.1. Papelera de Reciclaje (Reuniones y Asistencias) ────────────────
+    if (pathname === '/api/papelera' && method === 'GET') {
+      const baseUrl = getEffectiveBaseUrl(req);
+      const eventosEliminados = db
+        .prepare('SELECT * FROM eventos WHERE COALESCE(eliminado, 0) = 1 ORDER BY eliminado_en DESC, fecha DESC')
+        .all()
+        .map((ev) => buildEventResponse(ev, baseUrl));
+
+      const asistenciasEliminadas = db
+        .prepare(`
+          SELECT
+            a.*,
+            e.tema as evento_tema,
+            e.fecha as evento_fecha,
+            e.hora as evento_hora,
+            e.token as evento_token,
+            e.direccion_organiza as evento_direccion_organiza
+          FROM asistencias a
+          LEFT JOIN eventos e ON e.id = a.evento_id
+          WHERE COALESCE(a.eliminado, 0) = 1
+          ORDER BY a.eliminado_en DESC, a.id DESC
+        `)
+        .all();
+
+      return sendJSON(res, 200, {
+        eventos: eventosEliminados,
+        asistencias: asistenciasEliminadas,
+        totalEventos: eventosEliminados.length,
+        totalAsistencias: asistenciasEliminadas.length,
+        total: eventosEliminados.length + asistenciasEliminadas.length,
+      });
+    }
+
+    // Restaurar elemento de la papelera
+    if (pathname === '/api/papelera/restaurar' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const tipo = String(body.tipo || '').toLowerCase();
+      const id = body.id;
+
+      if (!id || !['evento', 'asistencia'].includes(tipo)) {
+        return sendJSON(res, 400, { error: 'Parámetros inválidos para restaurar.' });
+      }
+
+      if (tipo === 'evento') {
+        db.prepare('UPDATE eventos SET eliminado = 0, eliminado_en = NULL WHERE id = ?').run(id);
+        db.prepare('UPDATE asistencias SET eliminado = 0, eliminado_en = NULL WHERE evento_id = ?').run(id);
+        broadcastSSE('evento_restaurado', { id });
+      } else if (tipo === 'asistencia') {
+        db.prepare('UPDATE asistencias SET eliminado = 0, eliminado_en = NULL WHERE id = ?').run(Number(id));
+        broadcastSSE('asistencia_restaurada', { id });
+      }
+
+      broadcastSSE('papelera_actualizada', {});
+      return sendJSON(res, 200, { ok: true, tipo, id });
+    }
+
+    // Purgar elemento individual o vaciar papelera definitivamente
+    if (pathname === '/api/papelera/purgar' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const tipo = String(body.tipo || '').toLowerCase();
+      const id = body.id;
+
+      if (tipo === 'todo') {
+        db.prepare('DELETE FROM asistencias WHERE COALESCE(eliminado, 0) = 1').run();
+        db.prepare('DELETE FROM asistencias WHERE evento_id IN (SELECT id FROM eventos WHERE COALESCE(eliminado, 0) = 1)').run();
+        db.prepare('DELETE FROM eventos WHERE COALESCE(eliminado, 0) = 1').run();
+        broadcastSSE('papelera_vaciada', {});
+        return sendJSON(res, 200, { ok: true, purgados: 'todo' });
+      }
+
+      if (tipo === 'evento' && id) {
+        db.prepare('DELETE FROM asistencias WHERE evento_id = ?').run(id);
+        db.prepare('DELETE FROM eventos WHERE id = ?').run(id);
+        broadcastSSE('evento_purgado', { id });
+        return sendJSON(res, 200, { ok: true, tipo, id });
+      }
+
+      if (tipo === 'asistencia' && id) {
+        db.prepare('DELETE FROM asistencias WHERE id = ?').run(Number(id));
+        broadcastSSE('asistencia_purgada', { id });
+        return sendJSON(res, 200, { ok: true, tipo, id });
+      }
+
+      return sendJSON(res, 400, { error: 'Parámetros inválidos para purgar de papelera.' });
     }
 
     // ── 9. Exportación CSV / Excel de Base de Datos General ──────────────────
     if (pathname === '/api/export/csv' && method === 'GET') {
       const eventoId = parsedUrl.searchParams.get('evento_id') || '';
       const unidad = parsedUrl.searchParams.get('unidad') || '';
-      let where = [];
+      let where = ['COALESCE(a.eliminado, 0) = 0', '(e.id IS NULL OR COALESCE(e.eliminado, 0) = 0)'];
       let params = [];
       if (eventoId) {
         where.push('a.evento_id = ?');
