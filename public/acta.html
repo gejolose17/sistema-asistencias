@@ -203,14 +203,14 @@
     }
 
     .attendance-table thead th {
-      background: var(--primary);
-      color: var(--white);
+      background: var(--primary) !important;
+      color: var(--white) !important;
       text-transform: uppercase;
       font-size: 0.74rem;
       letter-spacing: 0.04em;
       padding: 9px 10px;
       border: 1px solid #007784;
-      text-align: left;
+      text-align: center !important;
     }
 
     .attendance-table tbody td {
@@ -246,6 +246,43 @@
       .sheet-logo img {
         max-height: 46px;
       }
+    }
+
+    .gender-summary-wrap {
+      margin-top: 16px;
+      display: flex;
+      justify-content: flex-end;
+      page-break-inside: avoid;
+    }
+
+    table.gender-summary-table {
+      width: 340px;
+      max-width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+      background: var(--white);
+      border: 1.5px solid #007784;
+    }
+
+    table.gender-summary-table thead th {
+      background: var(--primary) !important;
+      color: var(--white) !important;
+      text-transform: uppercase;
+      font-size: 0.74rem;
+      padding: 8px 10px;
+      border: 1px solid #007784;
+      text-align: center !important;
+    }
+
+    table.gender-summary-table tbody td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 10px;
+    }
+
+    table.gender-summary-table tbody tr.total-row td {
+      background: #e6f6f8;
+      font-weight: 800;
+      border-top: 2px solid var(--primary);
     }
 
     @media print {
@@ -285,8 +322,8 @@
         <h1 id="headerTitle">ASISTENCIA DE PARTICIPACIÓN</h1>
         <p>Registro Oficial de Asistencia y Participación Institucional</p>
       </div>
-      <div class="sheet-logo right">
-        <img id="rightLogo" src="/image/uverde.png" alt="Logo UAM" />
+      <div class="sheet-logo right" id="rightLogoBox">
+        <img id="rightLogo" src="" alt="" style="display:none;" />
       </div>
     </div>
 
@@ -339,6 +376,35 @@
         </tbody>
       </table>
     </div>
+
+    <div class="gender-summary-wrap">
+      <table class="gender-summary-table">
+        <thead>
+          <tr>
+            <th>Sexo</th>
+            <th>Cantidad</th>
+            <th>Porcentaje</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Masculino</strong></td>
+            <td style="text-align:center;" id="actaMascCount">0</td>
+            <td style="text-align:center;" id="actaMascPct">0.0%</td>
+          </tr>
+          <tr>
+            <td><strong>Femenino</strong></td>
+            <td style="text-align:center;" id="actaFemCount">0</td>
+            <td style="text-align:center;" id="actaFemPct">0.0%</td>
+          </tr>
+          <tr class="total-row">
+            <td>TOTAL</td>
+            <td style="text-align:center;" id="actaTotalCount">0</td>
+            <td style="text-align:center;" id="actaTotalPct">0.0%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <script>
@@ -383,11 +449,19 @@
         document.getElementById('headerTitle').textContent =
           (evData.config.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN').toUpperCase();
         if (evData.config.logo_izquierdo) document.getElementById('leftLogo').src = evData.config.logo_izquierdo;
-        if (evData.config.logo_derecho) document.getElementById('rightLogo').src = evData.config.logo_derecho;
+        const rightLogoEl = document.getElementById('rightLogo');
+        if (evData.config.logo_derecho && !evData.config.logo_derecho.toLowerCase().includes('uverde')) {
+          rightLogoEl.src = evData.config.logo_derecho;
+          rightLogoEl.style.display = 'block';
+        } else {
+          rightLogoEl.style.display = 'none';
+        }
       }
 
+      let orgDir = '';
       if (evData.evento) {
         const ev = evData.evento;
+        orgDir = ev.direccion_organiza || '';
         document.getElementById('metaTema').textContent = ev.tema;
         document.getElementById('metaFecha').textContent = ev.fecha;
         document.getElementById('metaHora').textContent = `${ev.hora} (Cierre: ${ev.hora_cierre})`;
@@ -399,7 +473,41 @@
           (ev.unidades_invitadas_lista || []).join(', ') || 'Todas las Unidades';
       }
 
-      const list = (asisData.asistencias || []).slice().reverse();
+      const rawList = (asisData.asistencias || []).slice().reverse();
+      const normU = (s) => String(s || '').trim().toLowerCase();
+      const unitCounts = {};
+      for (const r of rawList) {
+        const k = normU(r.unidad);
+        unitCounts[k] = (unitCounts[k] || 0) + 1;
+      }
+      const orgDirNorm = normU(orgDir);
+      const list = rawList.slice().sort((a, b) => {
+        const aOrg = orgDirNorm ? normU(a.unidad) === orgDirNorm : false;
+        const bOrg = orgDirNorm ? normU(b.unidad) === orgDirNorm : false;
+        if (aOrg !== bOrg) return aOrg ? 1 : -1;
+        const countDiff = (unitCounts[normU(b.unidad)] || 0) - (unitCounts[normU(a.unidad)] || 0);
+        if (countDiff !== 0) return countDiff;
+        const unitCmp = String(a.unidad || '').localeCompare(String(b.unidad || ''), 'es');
+        if (unitCmp !== 0) return unitCmp;
+        return Number(a.id || 0) - Number(b.id || 0);
+      });
+
+      let mascCount = 0;
+      let femCount = 0;
+      for (const r of list) {
+        const sx = normU(r.sexo);
+        if (sx.startsWith('m')) mascCount++;
+        else if (sx.startsWith('f')) femCount++;
+      }
+      const totalCount = list.length;
+      document.getElementById('actaMascCount').textContent = mascCount;
+      document.getElementById('actaMascPct').textContent =
+        totalCount > 0 ? ((mascCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+      document.getElementById('actaFemCount').textContent = femCount;
+      document.getElementById('actaFemPct').textContent =
+        totalCount > 0 ? ((femCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+      document.getElementById('actaTotalCount').textContent = totalCount;
+      document.getElementById('actaTotalPct').textContent = totalCount > 0 ? '100.0%' : '0.0%';
       const tbody = document.getElementById('rowsBody');
       if (list.length === 0) {
         tbody.innerHTML =

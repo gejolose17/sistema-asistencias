@@ -243,15 +243,15 @@
     }
 
     table.attendance-grid thead th {
-      background: var(--gray-title);
+      background: var(--primary);
       color: var(--white);
       font-weight: 700;
       text-transform: uppercase;
       font-size: 0.78rem;
       letter-spacing: 0.04em;
       padding: 10px 12px;
-      border: 1px solid var(--gray-title);
-      text-align: left;
+      border: 1px solid var(--primary-dark);
+      text-align: center !important;
       white-space: nowrap;
     }
 
@@ -343,6 +343,50 @@
       font-weight: 700;
     }
 
+    .gender-summary-wrap {
+      margin-top: 16px;
+      display: flex;
+      justify-content: flex-end;
+      page-break-inside: avoid;
+    }
+
+    table.gender-summary-table {
+      width: 340px;
+      max-width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+      background: var(--white);
+      border: 1.5px solid var(--primary-dark);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    table.gender-summary-table thead th {
+      background: var(--primary) !important;
+      color: var(--white) !important;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      padding: 8px 10px;
+      border: 1px solid var(--primary-dark);
+      text-align: center !important;
+    }
+
+    table.gender-summary-table tbody td {
+      border: 1px solid var(--gray-border);
+      padding: 6px 10px;
+      color: var(--gray-text);
+    }
+
+    table.gender-summary-table tbody tr.total-row td {
+      background: #e6f6f8;
+      font-weight: 800;
+      color: var(--gray-title);
+      border-top: 2px solid var(--primary);
+    }
+
     @media print {
       body {
         background: var(--white);
@@ -358,9 +402,11 @@
         max-width: 100%;
         border-top: none;
       }
-      table.attendance-grid thead th {
-        background: #1f2937 !important;
+      table.attendance-grid thead th,
+      table.gender-summary-table thead th {
+        background: #0099a8 !important;
         color: #ffffff !important;
+        text-align: center !important;
       }
     }
   </style>
@@ -382,14 +428,14 @@
     <!-- HEADER INSTITUCIONAL -->
     <header class="inst-header">
       <div class="logo-box">
-        <img id="leftLogoImg" src="/image/uamh.png" alt="Logo UAM" />
+        <img id="leftLogoImg" src="/image/uamh.png" alt="Logo Dirección Organizadora" />
       </div>
       <div class="header-center">
         <h1 class="header-title" id="instTitle">ASISTENCIA DE PARTICIPACIÓN</h1>
         <p class="header-sub" id="instSub">Registro Oficial de Participación y Firmas</p>
       </div>
       <div class="logo-box">
-        <img id="rightLogoImg" src="/image/uverde.png" alt="Logo UAM" />
+        <img id="rightLogoImg" src="" alt="" style="display:none;" />
       </div>
     </header>
 
@@ -425,7 +471,7 @@
       </div>
     </section>
 
-    <!-- TABLA DE COLUMNAS SOLICITADAS: N° (Conteo), Nombre, Unidad, Cargo, Femenino/Masculino, Firma -->
+    <!-- TABLA DE COLUMNAS SOLICITADAS: N° (Conteo), Nombre, Unidad, Cargo, Sexo, Firma -->
     <div class="table-container">
       <table class="attendance-grid">
         <thead>
@@ -434,7 +480,7 @@
             <th class="col-nombre">Nombre</th>
             <th class="col-unidad">Unidad</th>
             <th class="col-cargo">Cargo</th>
-            <th class="col-sexo">Femenino / Masculino</th>
+            <th class="col-sexo">Sexo</th>
             <th class="col-firma">Firma</th>
           </tr>
         </thead>
@@ -443,6 +489,36 @@
             <td colspan="6" style="text-align:center;padding:28px;color:var(--gray-muted);">
               Cargando lista de asistencia completa...
             </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- CUADRO RESUMEN FINAL: MASCULINO, FEMENINO, TOTAL Y PORCENTAJE -->
+    <div class="gender-summary-wrap">
+      <table class="gender-summary-table">
+        <thead>
+          <tr>
+            <th>Sexo</th>
+            <th>Cantidad</th>
+            <th>Porcentaje</th>
+          </tr>
+        </thead>
+        <tbody id="genderSummaryBody">
+          <tr>
+            <td><strong>Masculino</strong></td>
+            <td style="text-align:center;" id="sumMascCount">0</td>
+            <td style="text-align:center;" id="sumMascPct">0.0%</td>
+          </tr>
+          <tr>
+            <td><strong>Femenino</strong></td>
+            <td style="text-align:center;" id="sumFemCount">0</td>
+            <td style="text-align:center;" id="sumFemPct">0.0%</td>
+          </tr>
+          <tr class="total-row">
+            <td>TOTAL</td>
+            <td style="text-align:center;" id="sumTotalCount">0</td>
+            <td style="text-align:center;" id="sumTotalPct">0.0%</td>
           </tr>
         </tbody>
       </table>
@@ -503,6 +579,8 @@
         }
       } catch (_) {}
 
+      let eventDireccionOrganiza = '';
+
       // 1. Cargar Configuración de Logos e Identidad
       try {
         const cfgRes = await fetch('/api/config');
@@ -513,14 +591,18 @@
         if (cfg.logo_izquierdo) {
           document.getElementById('leftLogoImg').src = cfg.logo_izquierdo;
         }
-        if (cfg.logo_derecho) {
-          document.getElementById('rightLogoImg').src = cfg.logo_derecho;
+        const rightLogoEl = document.getElementById('rightLogoImg');
+        if (cfg.logo_derecho && !cfg.logo_derecho.toLowerCase().includes('uverde')) {
+          rightLogoEl.src = cfg.logo_derecho;
+          rightLogoEl.style.display = 'block';
+        } else {
+          rightLogoEl.style.display = 'none';
         }
       } catch (err) {
         console.error(err);
       }
 
-      // 2. Si viene filtrado por un evento específico, cargar metadatos del evento
+      // 2. Si viene filtrado por un evento específico, cargar metadatos del evento y su logo de Dirección Organizadora
       if (eventoId || token) {
         try {
           const evRes = await fetch('/api/eventos');
@@ -529,6 +611,7 @@
             (e) => e.id === eventoId || e.token === token || e.token === eventoId
           );
           if (target) {
+            eventDireccionOrganiza = target.direccion_organiza || '';
             document.getElementById('bannerTema').textContent = target.tema;
             document.getElementById('bannerFecha').textContent = `${target.fecha} — ${target.hora}`;
             document.getElementById('bannerDireccion').textContent = target.direccion_organiza || 'Institucional';
@@ -536,6 +619,9 @@
             document.getElementById('bannerProceso').textContent = target.proceso_iso || 'General';
             document.getElementById('bannerPlan').textContent = target.planificacion || 'General';
             document.getElementById('filterSummaryPill').textContent = `Reunión: ${target.tema}`;
+            if (target.logo_direccion_url) {
+              document.getElementById('leftLogoImg').src = target.logo_direccion_url;
+            }
           }
         } catch (err) {
           console.error(err);
@@ -549,7 +635,17 @@
         document.getElementById('filterSummaryPill').textContent =
           filterPills.length > 0 ? `Filtros: ${filterPills.join(' | ')}` : 'Lista Completa General';
 
-        if (unidad) document.getElementById('bannerDireccion').textContent = unidad;
+        if (unidad) {
+          eventDireccionOrganiza = unidad;
+          document.getElementById('bannerDireccion').textContent = unidad;
+          try {
+            const logoRes = await fetch(`/api/logo-direccion?direccion=${encodeURIComponent(unidad)}`);
+            const logoData = await logoRes.json();
+            if (logoData && logoData.logo_url) {
+              document.getElementById('leftLogoImg').src = logoData.logo_url;
+            }
+          } catch (_) {}
+        }
         if (procesoIso) document.getElementById('bannerProceso').textContent = procesoIso;
         if (fecha) document.getElementById('bannerFecha').textContent = fecha;
       }
@@ -566,7 +662,72 @@
 
         const res = await fetch(`/api/asistencias?${queryParams.toString()}`);
         const data = await res.json();
-        const list = (data.asistencias || []).slice().reverse();
+        const rawList = (data.asistencias || []).slice().reverse();
+
+        // Si no se especificó eventoId pero todos los registros pertenecen a la misma Dirección Organizadora, usar su logo
+        if (!eventDireccionOrganiza && rawList.length > 0) {
+          const uniqueDirs = Array.from(
+            new Set(rawList.map((r) => String(r.evento_direccion_organiza || '').trim()).filter(Boolean))
+          );
+          if (uniqueDirs.length === 1) {
+            eventDireccionOrganiza = uniqueDirs[0];
+            document.getElementById('bannerDireccion').textContent = eventDireccionOrganiza;
+            try {
+              const logoRes = await fetch(`/api/logo-direccion?direccion=${encodeURIComponent(eventDireccionOrganiza)}`);
+              const logoData = await logoRes.json();
+              if (logoData && logoData.logo_url) {
+                document.getElementById('leftLogoImg').src = logoData.logo_url;
+              }
+            } catch (_) {}
+          }
+        }
+
+        // II - Organizar por cantidad de Direcciones/Facultades (descendente) y por último la Dirección Organizadora
+        const normU = (s) => String(s || '').trim().toLowerCase();
+        const unitCounts = {};
+        for (const r of rawList) {
+          const k = normU(r.unidad);
+          unitCounts[k] = (unitCounts[k] || 0) + 1;
+        }
+        const orgDirNorm = normU(eventDireccionOrganiza);
+
+        const list = rawList.slice().sort((a, b) => {
+          const aOrg = orgDirNorm
+            ? normU(a.unidad) === orgDirNorm
+            : Boolean(a.evento_direccion_organiza && normU(a.unidad) === normU(a.evento_direccion_organiza));
+          const bOrg = orgDirNorm
+            ? normU(b.unidad) === orgDirNorm
+            : Boolean(b.evento_direccion_organiza && normU(b.unidad) === normU(b.evento_direccion_organiza));
+          if (aOrg !== bOrg) return aOrg ? 1 : -1;
+
+          const countDiff = (unitCounts[normU(b.unidad)] || 0) - (unitCounts[normU(a.unidad)] || 0);
+          if (countDiff !== 0) return countDiff;
+
+          const unitCmp = String(a.unidad || '').localeCompare(String(b.unidad || ''), 'es');
+          if (unitCmp !== 0) return unitCmp;
+
+          return Number(a.id || 0) - Number(b.id || 0);
+        });
+
+        // III - Calcular conteo y porcentaje de Masculino, Femenino y Total
+        let mascCount = 0;
+        let femCount = 0;
+        for (const r of list) {
+          const sx = normU(r.sexo);
+          if (sx.startsWith('m')) mascCount++;
+          else if (sx.startsWith('f')) femCount++;
+        }
+        const totalCount = list.length;
+        const mascPct = totalCount > 0 ? ((mascCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+        const femPct = totalCount > 0 ? ((femCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+        const totalPct = totalCount > 0 ? '100.0%' : '0.0%';
+
+        document.getElementById('sumMascCount').textContent = mascCount;
+        document.getElementById('sumMascPct').textContent = mascPct;
+        document.getElementById('sumFemCount').textContent = femCount;
+        document.getElementById('sumFemPct').textContent = femPct;
+        document.getElementById('sumTotalCount').textContent = totalCount;
+        document.getElementById('sumTotalPct').textContent = totalPct;
 
         document.getElementById('bannerTotalFilas').textContent = `${list.length} participante(s)`;
         document.getElementById('bottomCountBadge').textContent = `Conteo Total: ${list.length} filas registradas`;

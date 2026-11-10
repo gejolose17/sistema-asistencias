@@ -396,6 +396,7 @@
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.04em;
+      color: var(--white);
     }
 
     .panel-body {
@@ -629,7 +630,7 @@
     }
 
     .full-cal-weekday {
-      background: var(--dark-gray);
+      background: #0099A8;
       color: var(--white);
       padding: 10px 8px;
       text-align: center;
@@ -637,7 +638,7 @@
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      border-right: 1px solid #334155;
+      border-right: 1px solid var(--primary-dark);
     }
 
     .full-cal-cell {
@@ -775,14 +776,14 @@
     }
 
     table.db-table thead th {
-      background: var(--dark-gray);
+      background: #0099A8;
       color: var(--white);
       text-transform: uppercase;
       font-size: 0.73rem;
       letter-spacing: 0.04em;
       padding: 11px 12px;
-      text-align: left;
-      border-bottom: 3px solid var(--primary);
+      text-align: center;
+      border-bottom: 3px solid var(--primary-dark);
       white-space: nowrap;
     }
 
@@ -1392,7 +1393,7 @@
                   <strong id="previewHeaderTitle" style="font-size:1.1rem;text-transform:uppercase;color:var(--dark-gray);">ASISTENCIA DE PARTICIPACIÓN</strong>
                 </div>
                 <div style="text-align:center;">
-                  <img id="previewRightLogo" src="/image/uverde.png" alt="Logo Der" style="max-height:56px;max-width:100%;object-fit:contain;" />
+                  <img id="previewRightLogo" src="" alt="" style="max-height:56px;max-width:100%;object-fit:contain;display:none;" />
                 </div>
               </div>
 
@@ -1928,7 +1929,14 @@
         document.getElementById('previewHeaderTitle').textContent =
           (cfg.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN').toUpperCase();
         if (cfg.logo_izquierdo) document.getElementById('previewLeftLogo').src = cfg.logo_izquierdo;
-        if (cfg.logo_derecho) document.getElementById('previewRightLogo').src = cfg.logo_derecho;
+        const prevRight = document.getElementById('previewRightLogo');
+        if (cfg.logo_derecho && !cfg.logo_derecho.toLowerCase().includes('uverde')) {
+          prevRight.src = cfg.logo_derecho;
+          prevRight.style.display = '';
+        } else {
+          prevRight.removeAttribute('src');
+          prevRight.style.display = 'none';
+        }
 
         document.getElementById('cfgHeaderTitle').value =
           (cfg.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN').toUpperCase();
@@ -3382,7 +3390,9 @@
           if (pickingLogoSide === 'left') {
             document.getElementById('previewLeftLogo').src = data.url;
           } else {
-            document.getElementById('previewRightLogo').src = data.url;
+            const prevRight = document.getElementById('previewRightLogo');
+            prevRight.src = data.url;
+            prevRight.style.display = '';
           }
           showToast('Logo del encabezado de asistencias actualizado.');
         }

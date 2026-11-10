@@ -669,7 +669,7 @@
       </div>
 
       <div class="logo-slot" title="Logo Derecho">
-        <img id="logoRightImg" src="/image/uverde.png" alt="Logo UAM" />
+        <img id="logoRightImg" src="" alt="" style="display:none;" />
         <button type="button" class="logo-edit-btn" onclick="triggerLogoUpload('right')">✎ Logo</button>
       </div>
 
@@ -1139,7 +1139,14 @@
         document.getElementById('headerTitleText').textContent =
           (cfg.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN').toUpperCase();
         if (cfg.logo_izquierdo) document.getElementById('logoLeftImg').src = cfg.logo_izquierdo;
-        if (cfg.logo_derecho) document.getElementById('logoRightImg').src = cfg.logo_derecho;
+        const rLogo = document.getElementById('logoRightImg');
+        if (cfg.logo_derecho && !cfg.logo_derecho.toLowerCase().includes('uverde')) {
+          rLogo.src = cfg.logo_derecho;
+          rLogo.style.display = '';
+        } else {
+          rLogo.removeAttribute('src');
+          rLogo.style.display = 'none';
+        }
 
         document.getElementById('autoTema').textContent = currentEvent.tema;
         document.getElementById('autoFecha').textContent = formatFechaDisplay(currentEvent.fecha);
@@ -1363,7 +1370,9 @@
           if (uploadingLogoSide === 'left') {
             document.getElementById('logoLeftImg').src = data.url;
           } else {
-            document.getElementById('logoRightImg').src = data.url;
+            const rLogo = document.getElementById('logoRightImg');
+            rLogo.src = data.url;
+            rLogo.style.display = '';
           }
         }
       };

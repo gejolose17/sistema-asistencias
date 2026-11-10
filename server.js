@@ -19,6 +19,7 @@ const {
   deleteCampoCatalogo,
   getCatalogos,
   syncClientDataToDb,
+  resolveLogoForDireccion,
   getNowISO,
 } = require('./lib/db');
 const { generateQRSVG, generateQRMatrix } = require('./lib/qrcode');
@@ -185,12 +186,14 @@ function buildEventResponse(evento, baseUrl) {
     .prepare('SELECT COUNT(*) as total FROM asistencias WHERE evento_id = ? AND COALESCE(eliminado, 0) = 0')
     .get(evento.id);
   const link = `${baseUrl}/asistencia/${encodeURIComponent(evento.token)}`;
+  const logoDirUrl = resolveLogoForDireccion(evento.direccion_organiza);
   return {
     ...status,
     total_asistencias: countRow ? countRow.total : 0,
     vinculo: link,
     qr_svg_url: `/api/qr/${encodeURIComponent(evento.token)}?url=${encodeURIComponent(link)}`,
     acta_url: `/acta/${encodeURIComponent(evento.token)}`,
+    logo_direccion_url: logoDirUrl || '/image/uamh.png',
   };
 }
 
@@ -319,10 +322,22 @@ async function requestHandler(req, res) {
     }
 
     // ── 3. Configuración Global y Logos de las Listas de Asistencia ──────────
+    if (pathname === '/api/logo-direccion' && method === 'GET') {
+      const dir = parsedUrl.searchParams.get('direccion') || '';
+      const resolved = resolveLogoForDireccion(dir);
+      return sendJSON(res, 200, {
+        direccion: dir,
+        logo_url: resolved || '/image/uamh.png',
+        has_custom_logo: Boolean(resolved),
+      });
+    }
+
     if (pathname === '/api/config' && method === 'GET') {
       const configs = getAllConfigs();
+      const cleanDerecho = String(configs.logo_derecho || '').replace(/.*uverde.*/i, '');
       return sendJSON(res, 200, {
         ...configs,
+        logo_derecho: cleanDerecho,
         effectiveBaseUrl: getEffectiveBaseUrl(req),
         networkIPs: getNetworkIPs(),
         port: PORT,
@@ -758,6 +773,12 @@ async function requestHandler(req, res) {
             })
           : allUnidadesCatalog;
 
+      const dirLogo = resolveLogoForDireccion(evento.direccion_organiza);
+      const cleanRightLogo = String(evento.logo_derecho_custom || configs.logo_derecho || '').replace(
+        /.*uverde.*/i,
+        ''
+      );
+
       return sendJSON(res, 200, {
         evento: status,
         unidades: invitedUnidadesCatalog,
@@ -768,8 +789,8 @@ async function requestHandler(req, res) {
         config: {
           titulo_header: configs.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN',
           subtitulo_header: configs.subtitulo_header || '',
-          logo_izquierdo: evento.logo_izquierdo_custom || configs.logo_izquierdo || '/image/uamh.png',
-          logo_derecho: evento.logo_derecho_custom || configs.logo_derecho || '/image/uverde.png',
+          logo_izquierdo: dirLogo || evento.logo_izquierdo_custom || configs.logo_izquierdo || '/image/uamh.png',
+          logo_derecho: cleanRightLogo,
           mensaje_gracias_titulo: configs.mensaje_gracias_titulo || '¡Gracias por llenar esta asistencia!',
           mensaje_gracias_cuerpo:
             configs.mensaje_gracias_cuerpo ||
@@ -1064,7 +1085,7 @@ async function requestHandler(req, res) {
         params.push(unidad);
       }
       const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
-      const rows = db
+      const rowsRaw = db
         .prepare(`
           SELECT
             a.id, a.fecha, a.hora, a.tema,
@@ -1073,9 +1094,27 @@ async function requestHandler(req, res) {
           FROM asistencias a
           LEFT JOIN eventos e ON e.id = a.evento_id
           ${whereSQL}
-          ORDER BY a.fecha DESC, a.hora DESC, a.id ASC
+          ORDER BY a.id ASC
         `)
         .all(...params);
+
+      // Ordenar por cantidad de registros de cada Dirección/Facultad (descendente) y por último la Dirección Organizadora
+      const normU = (s) => String(s || '').trim().toLowerCase();
+      const unitCounts = {};
+      for (const r of rowsRaw) {
+        const k = normU(r.unidad);
+        unitCounts[k] = (unitCounts[k] || 0) + 1;
+      }
+      const rows = rowsRaw.slice().sort((a, b) => {
+        const aIsOrg = a.direccion_organiza && normU(a.unidad) === normU(a.direccion_organiza);
+        const bIsOrg = b.direccion_organiza && normU(b.unidad) === normU(b.direccion_organiza);
+        if (aIsOrg !== bIsOrg) return aIsOrg ? 1 : -1;
+        const countDiff = (unitCounts[normU(b.unidad)] || 0) - (unitCounts[normU(a.unidad)] || 0);
+        if (countDiff !== 0) return countDiff;
+        const unitCmp = String(a.unidad || '').localeCompare(String(b.unidad || ''), 'es');
+        if (unitCmp !== 0) return unitCmp;
+        return Number(a.id || 0) - Number(b.id || 0);
+      });
 
       const escapeCSV = (val) => `"${String(val ?? '').replace(/"/g, '""')}"`;
 
@@ -1097,8 +1136,14 @@ async function requestHandler(req, res) {
         'IP Dispositivo',
       ];
 
+      let mascCount = 0;
+      let femCount = 0;
       const csvLines = [headers.map(escapeCSV).join(',')];
       for (const r of rows) {
+        const sx = normU(r.sexo);
+        if (sx.startsWith('m')) mascCount++;
+        else if (sx.startsWith('f')) femCount++;
+
         csvLines.push(
           [
             r.id,
@@ -1121,6 +1166,17 @@ async function requestHandler(req, res) {
             .join(',')
         );
       }
+
+      const totalCount = rows.length;
+      const mascPct = totalCount > 0 ? ((mascCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+      const femPct = totalCount > 0 ? ((femCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+      const totalPct = totalCount > 0 ? '100.0%' : '0.0%';
+
+      csvLines.push('');
+      csvLines.push(['RESUMEN POR SEXO', 'CANTIDAD', 'PORCENTAJE'].map(escapeCSV).join(','));
+      csvLines.push(['Masculino', mascCount, mascPct].map(escapeCSV).join(','));
+      csvLines.push(['Femenino', femCount, femPct].map(escapeCSV).join(','));
+      csvLines.push(['TOTAL', totalCount, totalPct].map(escapeCSV).join(','));
 
       const csvContent = '\uFEFF' + csvLines.join('\r\n');
       const filename = eventoId
@@ -1152,18 +1208,34 @@ async function requestHandler(req, res) {
     }
 
     if (pathname.startsWith('/image/') && method === 'GET') {
-      const requestedName = path.basename(pathname);
+      const relSubpath = pathname.replace(/^\/image\/+/, '').replace(/^(\.\.[/\\])+/, '');
+      const segments = relSubpath.split('/').filter(Boolean);
       const roots = [path.join(PUBLIC_DIR, 'image'), path.join(__dirname, 'image')];
+
       for (const rootDir of roots) {
-        const directPath = path.join(rootDir, requestedName);
-        if (fs.existsSync(directPath)) {
+        const directPath = path.join(rootDir, ...segments);
+        if (fs.existsSync(directPath) && fs.statSync(directPath).isFile()) {
           return serveStaticFile(res, directPath);
         }
+        // Resolución insensible a mayúsculas/minúsculas para subcarpetas (ej. /image/Logos/DPGC.png)
         try {
-          const entries = fs.readdirSync(rootDir);
-          const match = entries.find((e) => e.toLowerCase() === requestedName.toLowerCase());
-          if (match) {
-            return serveStaticFile(res, path.join(rootDir, match));
+          let currentPath = rootDir;
+          let matchedAll = true;
+          for (const seg of segments) {
+            if (!fs.existsSync(currentPath) || !fs.statSync(currentPath).isDirectory()) {
+              matchedAll = false;
+              break;
+            }
+            const entries = fs.readdirSync(currentPath);
+            const match = entries.find((e) => e.toLowerCase() === seg.toLowerCase());
+            if (!match) {
+              matchedAll = false;
+              break;
+            }
+            currentPath = path.join(currentPath, match);
+          }
+          if (matchedAll && fs.existsSync(currentPath) && fs.statSync(currentPath).isFile()) {
+            return serveStaticFile(res, currentPath);
           }
         } catch (_) {}
       }
