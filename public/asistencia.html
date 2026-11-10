@@ -115,16 +115,9 @@
       align-items: center;
       justify-content: center;
       border-radius: 10px;
-      border: 1px dashed transparent;
-      transition: all 0.2s ease;
       overflow: hidden;
       background: #fafafa;
       padding: 6px;
-    }
-
-    .logo-slot:hover {
-      border-color: var(--primary);
-      background: var(--primary-light);
     }
 
     .logo-slot img {
@@ -132,27 +125,6 @@
       max-height: 62px;
       object-fit: contain;
       display: block;
-    }
-
-    .logo-edit-btn {
-      position: absolute;
-      bottom: 3px;
-      right: 3px;
-      background: rgba(31, 41, 55, 0.86);
-      color: var(--white);
-      border: none;
-      border-radius: 5px;
-      font-size: 10px;
-      font-weight: 700;
-      padding: 3px 6px;
-      cursor: pointer;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-
-    .logo-slot:hover .logo-edit-btn,
-    .edit-mode-on .logo-edit-btn {
-      opacity: 1;
     }
 
     .header-center {
@@ -661,11 +633,10 @@
 </head>
 <body>
   <div class="form-shell">
-    <!-- HEADER CON LOGO A LA IZQUIERDA, CENTRO EN MAYÚSCULAS Y LOGO A LA DERECHA EDITABLES -->
+    <!-- HEADER CON LOGO A LA IZQUIERDA, CENTRO EN MAYÚSCULAS Y LOGO A LA DERECHA -->
     <header class="inst-header" id="headerContainer">
       <div class="logo-slot" title="Logo Izquierdo">
         <img id="logoLeftImg" src="/image/uamh.png" alt="Logo UAM" />
-        <button type="button" class="logo-edit-btn" onclick="triggerLogoUpload('left')">✎ Logo</button>
       </div>
 
       <div class="header-center">
@@ -676,10 +647,7 @@
 
       <div class="logo-slot" title="Logo Derecho">
         <img id="logoRightImg" src="/image/Jaguar34.png" alt="Logo Jaguar 34" />
-        <button type="button" class="logo-edit-btn" onclick="triggerLogoUpload('right')">✎ Logo</button>
       </div>
-
-      <input type="file" id="hiddenLogoInput" accept="image/*" style="display:none" />
     </header>
 
     <!-- BARRA DE ESTADO Y REGLA DE 30 MINUTOS -->
@@ -813,43 +781,15 @@
     <!-- PANTALLA DE LISTA DESACTIVADA (+30 MINUTOS) -->
     <section class="expired-screen" id="expiredSection">
       <div class="expired-icon">🔒</div>
-      <h2 class="expired-title">Lista de Asistencia Desactivada</h2>
+      <h2 class="expired-title" id="expiredTitleText">Lista de Asistencia Desactivada</h2>
       <p class="expired-desc" id="expiredMessageText">
         Esta lista de asistencia se desactivó automáticamente 30 minutos después de la fecha y hora programada en el calendario.
       </p>
       <div class="receipt-card" id="expiredEventSummary"></div>
-
-      <div id="expiredReactivateActions" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px;">
-        <button
-          type="button"
-          class="btn-save"
-          style="width:auto;min-height:46px;padding:12px 22px;font-size:0.92rem;background:#0d9488;"
-          onclick="reactivarEsteFormulario('ACTIVAR_PERMANENTE')"
-        >
-          ✅ Activar / Reactivar Formulario Ahora
-        </button>
-        <button
-          type="button"
-          class="btn-secondary"
-          style="min-height:46px;padding:12px 20px;font-size:0.9rem;"
-          onclick="reactivarEsteFormulario('REACTIVAR_30M')"
-        >
-          ⏱️ Reactivar por +30 Minutos
-        </button>
-      </div>
     </section>
 
     <footer class="footer-bar">
       <span>Sistema de Asistencia Institucional</span>
-      <span>
-        <button
-          type="button"
-          onclick="toggleLogoEditMode()"
-          style="background:none;border:none;color:#0099a8;cursor:pointer;font-weight:700;font-size:0.75rem;"
-        >
-          Editar Logos Header
-        </button>
-      </span>
     </footer>
   </div>
 
@@ -1049,57 +989,29 @@
         evento.etiqueta_estado ? evento.etiqueta_estado.toUpperCase() : 'LISTA DESACTIVADA';
       document.getElementById('countdownText').textContent = 'CERRADA';
 
-      document.getElementById('expiredMessageText').textContent =
+      const titleEl = document.getElementById('expiredTitleText');
+      if (titleEl) {
+        if (evento && evento.tema && evento.tema !== 'Vínculo no encontrado') {
+          titleEl.innerHTML = `Lista de Asistencia Desactivada<br/><span style="color:var(--primary-dark);font-size:1.12rem;display:inline-block;margin-top:6px;">${escapeHtml(evento.tema)}</span>`;
+        } else {
+          titleEl.textContent = 'Lista de Asistencia Desactivada';
+        }
+      }
+
+      const rawMsg =
         evento.mensaje_estado ||
         'Esta lista de asistencia se ha desactivado automáticamente al cumplirse los 30 minutos posteriores a la fecha y hora programada.';
-
-      const actionsEl = document.getElementById('expiredReactivateActions');
-      if (actionsEl) {
-        actionsEl.style.display = evento && (evento.id || evento.token) ? 'flex' : 'none';
-      }
+      document.getElementById('expiredMessageText').textContent = rawMsg.replace(
+        /\s*Puede reactivarla en cualquier momento\.?/i,
+        ''
+      );
 
       document.getElementById('expiredEventSummary').innerHTML = `
         <div class="receipt-row"><span>Tema:</span><strong>${escapeHtml(evento.tema)}</strong></div>
         <div class="receipt-row"><span>Fecha Programada:</span><strong>${escapeHtml(formatFechaDisplay(evento.fecha))}</strong></div>
-        <div class="receipt-row"><span>Hora Programada:</span><strong>${escapeHtml(evento.hora)}</strong></div>
-        <div class="receipt-row"><span>Estado / Cierre:</span><strong>${escapeHtml(evento.hora_cierre || '')}</strong></div>
+        <div class="receipt-row"><span>Hora Programada:</span><strong>${escapeHtml(formatHoraAmPm(evento.hora))}</strong></div>
+        <div class="receipt-row"><span>Estado / Cierre:</span><strong>${escapeHtml(formatHoraAmPm(evento.hora_cierre || ''))}</strong></div>
       `;
-    }
-
-    async function reactivarEsteFormulario(accion) {
-      try {
-        const targetKey = (currentEvent && (currentEvent.id || currentEvent.token)) || eventToken;
-        if (!targetKey) return;
-        const res = await fetch(`/api/eventos/${encodeURIComponent(targetKey)}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accion, minutos: 30 }),
-        });
-        if (!res.ok) {
-          alert('No se pudo reactivar el formulario. Intente nuevamente.');
-          return;
-        }
-        const data = await res.json();
-        if (data.evento) {
-          try {
-            const rawState = localStorage.getItem(STORAGE_KEY);
-            if (rawState) {
-              const parsed = JSON.parse(rawState);
-              if (parsed && Array.isArray(parsed.allEventosRaw)) {
-                parsed.allEventosRaw = parsed.allEventosRaw.map((ev) =>
-                  ev.id === data.evento.id || ev.token === data.evento.token
-                    ? { ...ev, ...data.evento }
-                    : ev
-                );
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-              }
-            }
-          } catch (_) {}
-        }
-        await loadEventForm();
-      } catch (_) {
-        alert('Error de red al reactivar el formulario.');
-      }
     }
 
     function startCountdown(expirationIso) {
@@ -1397,39 +1309,6 @@
       document.getElementById('activeFormSection').style.display = 'block';
       loadEventForm();
       setTimeout(resizeCanvas, 50);
-    });
-
-    function toggleLogoEditMode() {
-      document.getElementById('headerContainer').classList.toggle('edit-mode-on');
-    }
-
-    function triggerLogoUpload(side) {
-      uploadingLogoSide = side;
-      document.getElementById('hiddenLogoInput').click();
-    }
-
-    document.getElementById('hiddenLogoInput').addEventListener('change', (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file || !uploadingLogoSide) return;
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const res = await fetch('/api/upload-logo', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ side: uploadingLogoSide, dataUrl: reader.result }),
-        });
-        const data = await res.json();
-        if (res.ok && data.url) {
-          if (uploadingLogoSide === 'left') {
-            document.getElementById('logoLeftImg').src = data.url;
-          } else {
-            const rLogo = document.getElementById('logoRightImg');
-            rLogo.src = data.url;
-            rLogo.style.display = '';
-          }
-        }
-      };
-      reader.readAsDataURL(file);
     });
 
     loadEventForm();
