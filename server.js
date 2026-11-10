@@ -349,6 +349,39 @@ async function requestHandler(req, res) {
       }
     }
 
+    // Eliminación masiva de campos del catálogo
+    if (pathname === '/api/catalogos/campos/batch-delete' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const codigos = Array.isArray(body.codigos) ? body.codigos.map(String) : [];
+      if (codigos.length === 0) {
+        return sendJSON(res, 400, { error: 'No se enviaron campos para eliminar.' });
+      }
+      let deleted = 0;
+      for (const cod of codigos) {
+        try {
+          deleteCampoCatalogo(cod);
+          deleted++;
+        } catch (e) {
+          console.warn(`No se pudo eliminar campo ${cod}:`, e.message);
+        }
+      }
+      broadcastSSE('catalogo_actualizado', { batchDeletedCampos: codigos });
+      return sendJSON(res, 200, { ok: true, deletedCount: deleted });
+    }
+
+    // Eliminación masiva de opciones de catálogo
+    if (pathname === '/api/catalogos/items/batch-delete' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const ids = Array.isArray(body.ids) ? body.ids.map(Number).filter((n) => !isNaN(n) && n > 0) : [];
+      if (ids.length === 0) {
+        return sendJSON(res, 400, { error: 'No se seleccionaron opciones para eliminar.' });
+      }
+      const placeholders = ids.map(() => '?').join(',');
+      db.prepare(`DELETE FROM catalogos WHERE id IN (${placeholders})`).run(...ids);
+      broadcastSSE('catalogo_actualizado', { batchDeletedItems: ids });
+      return sendJSON(res, 200, { ok: true, deletedCount: ids.length });
+    }
+
     // Agregar una opción a cualquier campo/lista desplegable
     if (pathname === '/api/catalogos' && method === 'POST') {
       const body = await readJsonBody(req);

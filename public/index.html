@@ -76,101 +76,127 @@
       font-family: 'Franklin Gothic', 'Franklin Gothic Medium', 'ITC Franklin Gothic', Arial, sans-serif;
     }
 
-    /* ── BARRA SUPERIOR DE APLICACIÓN (SIN EL HEADER DE LA HOJA DE ASISTENCIA) ── */
-    .app-topbar {
-      background: var(--dark-gray-deep);
+    /* ── LAYOUT CON PESTAÑAS A LA IZQUIERDA DEL SISTEMA ── */
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+      background: var(--bg);
+    }
+
+    .sidebar-left {
+      width: 275px;
+      background: var(--dark-gray);
       color: var(--white);
-      border-bottom: 4px solid var(--primary);
-      padding: 0 24px;
+      border-right: 3px solid var(--primary);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
       position: sticky;
       top: 0;
+      height: 100vh;
+      overflow-y: auto;
       z-index: 50;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.16);
     }
 
-    .app-topbar-inner {
-      max-width: 1420px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 14px;
-      min-height: 66px;
+    .sidebar-brand {
+      padding: 22px 18px 16px;
+      background: var(--dark-gray-deep);
+      border-bottom: 2px solid #334155;
+      text-align: center;
     }
 
-    .brand-block {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 0;
+    .sidebar-logo {
+      max-height: 58px;
+      max-width: 100%;
+      object-fit: contain;
+      margin-bottom: 10px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
     }
 
-    .brand-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
-      background: var(--primary);
-      color: var(--white);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      font-size: 1.15rem;
-      box-shadow: 0 4px 12px rgba(0, 153, 168, 0.4);
-    }
-
-    .brand-title {
-      font-size: 1.05rem;
+    .sidebar-title {
+      font-size: 0.94rem;
       font-weight: 800;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.04em;
       color: var(--white);
+      text-transform: uppercase;
+      line-height: 1.3;
     }
 
-    .brand-sub {
-      font-size: 0.73rem;
+    .sidebar-sub {
+      font-size: 0.72rem;
       color: #94a3b8;
-      font-weight: 600;
+      font-weight: 400;
+      margin-top: 4px;
     }
 
-    /* ── 4 PESTAÑAS INDEPENDIENTES ── */
-    .nav-tabs {
+    .sidebar-nav {
+      padding: 16px 12px;
       display: flex;
-      gap: 4px;
-      overflow-x: auto;
-      align-self: stretch;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .sidebar-nav-header {
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #94a3b8;
+      letter-spacing: 0.08em;
+      padding: 6px 10px;
     }
 
     .nav-tab {
       background: transparent;
       color: #cbd5e1;
       border: none;
-      padding: 0 20px;
-      font-size: 0.9rem;
-      font-weight: 700;
+      border-radius: 9px;
+      padding: 13px 14px;
+      font-size: 0.88rem;
+      font-weight: 500;
       cursor: pointer;
-      border-bottom: 4px solid transparent;
-      transition: all 0.2s;
-      display: inline-flex;
+      border-left: 4px solid transparent;
+      transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
       align-items: center;
-      gap: 8px;
-      white-space: nowrap;
-      min-height: 62px;
+      justify-content: space-between;
+      gap: 10px;
+      text-align: left;
+      width: 100%;
+      position: relative;
     }
 
     .nav-tab:hover {
       color: var(--white);
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(0, 153, 168, 0.18);
+      border-left-color: var(--primary);
+      transform: translateX(3px);
+    }
+
+    .nav-tab:active {
+      transform: scale(0.96) translateX(1px);
     }
 
     .nav-tab.active {
       color: var(--white);
-      border-bottom-color: var(--primary);
-      background: rgba(0, 153, 168, 0.18);
+      background: var(--primary);
+      border-left-color: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(0, 153, 168, 0.38);
+    }
+
+    .tab-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
     .nav-tab .badge-count {
-      background: var(--primary);
+      background: #111827;
       color: var(--white);
       font-size: 0.72rem;
       padding: 2px 8px;
@@ -178,66 +204,165 @@
       font-weight: 800;
     }
 
-    /* ── SUB-BARRA DE RECURSOS Y TELEMETRÍA ── */
-    .telemetry-bar {
-      background: var(--dark-gray);
-      color: #cbd5e1;
-      padding: 7px 24px;
-      font-size: 0.76rem;
-      border-bottom: 1px solid #334155;
+    .nav-tab.active .badge-count {
+      background: rgba(255, 255, 255, 0.25);
+      color: var(--white);
     }
 
-    .telemetry-inner {
-      max-width: 1420px;
-      margin: 0 auto;
+    .sidebar-footer {
+      padding: 14px 16px;
+      border-top: 1px solid #334155;
+      background: var(--dark-gray-deep);
+      font-size: 0.73rem;
+      color: #94a3b8;
       display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── ÁREA DE CONTENIDO A LA DERECHA ── */
+    .main-content-area {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      min-height: 100vh;
+    }
+
+    .content-header {
+      background: var(--white);
+      border-bottom: 2px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: center;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      position: sticky;
+      top: 0;
+      z-index: 40;
     }
 
-    .telemetry-items {
+    .content-header-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--dark-gray);
+      letter-spacing: 0.01em;
+    }
+
+    .content-header-status {
       display: flex;
       align-items: center;
-      gap: 14px;
-      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .header-pill {
+      background: var(--primary);
+      color: var(--white);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── ANIMACIÓN AL CAMBIO DE PESTAÑAS ── */
+    @keyframes tabFadeSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+      animation: tabFadeSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* ── EFECTOS AL CLIC EN BOTONES Y ACCIONES ── */
+    button, .btn-primary, .btn-outline, .btn-dark, a.btn-primary, a.btn-outline, a.btn-dark {
+      transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      user-select: none;
+      cursor: pointer;
+    }
+
+    button:hover, .btn-primary:hover, .btn-outline:hover, .btn-dark:hover, a.btn-primary:hover, a.btn-outline:hover, a.btn-dark:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active, .btn-primary:active, .btn-outline:active, .btn-dark:active, a.btn-primary:active, a.btn-outline:active, a.btn-dark:active {
+      transform: scale(0.96) translateY(0);
     }
 
     .sys-pill {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      background: rgba(255, 255, 255, 0.06);
-      padding: 2px 10px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 3px 10px;
       border-radius: 999px;
       color: var(--white);
       font-weight: 600;
     }
 
     .sys-pill b {
-      color: #38bdf8;
+      color: var(--primary);
     }
 
     .live-dot {
       width: 7px;
       height: 7px;
       border-radius: 50%;
-      background: #10b981;
-      box-shadow: 0 0 8px #10b981;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
     }
 
     /* ── CONTENEDOR PRINCIPAL ── */
     .main-container {
       max-width: 1420px;
       width: 100%;
-      margin: 22px auto 48px;
-      padding: 0 22px;
+      margin: 18px auto 48px;
+      padding: 0 24px;
       flex: 1;
     }
 
-    .tab-pane {
-      display: none;
+    @media (max-width: 900px) {
+      .app-shell {
+        flex-direction: column;
+      }
+      .sidebar-left {
+        width: 100%;
+        height: auto;
+        position: relative;
+        border-right: none;
+        border-bottom: 3px solid var(--primary);
+      }
+      .sidebar-nav {
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 8px 10px;
+      }
+      .nav-tab {
+        white-space: nowrap;
+        width: auto;
+      }
+      .sidebar-footer {
+        display: none;
+      }
+      .main-container {
+        padding: 0 12px;
+      }
     }
 
     .tab-pane.active {
@@ -830,59 +955,61 @@
   </style>
 </head>
 <body>
-  <!-- BARRA DE NAVEGACIÓN PRINCIPAL (4 PESTAÑAS SEPARADAS) -->
-  <header class="app-topbar">
-    <div class="app-topbar-inner">
-      <div class="brand-block">
-        <div class="brand-icon">✓</div>
-        <div>
-          <div class="brand-title">SISTEMA DE GESTIÓN DE ASISTENCIAS</div>
-          <div class="brand-sub">Calendarización, Vínculos por Separado, QR y Base de Datos Central</div>
-        </div>
+  <div class="app-shell">
+    <!-- BARRA LATERAL IZQUIERDA CON TODAS LAS PESTAÑAS -->
+    <aside class="sidebar-left">
+      <div class="sidebar-brand">
+        <img src="/image/uamh.png" alt="Logo UAM" class="sidebar-logo" />
+        <div class="sidebar-title">SISTEMA DE ASISTENCIAS</div>
+        <div class="sidebar-sub">Registro y Control Institucional</div>
       </div>
 
-      <nav class="nav-tabs">
+      <nav class="sidebar-nav">
+        <div class="sidebar-nav-header">Pestañas del Sistema</div>
         <button class="nav-tab active" data-tab="programar" onclick="switchTab('programar', this)">
-          ➕ Programar Reunión
+          <span class="tab-label"><span>➕</span> Programar Reunión</span>
         </button>
         <button class="nav-tab" data-tab="listas" onclick="switchTab('listas', this)">
-          🗓️ Listas Generadas (Calendario)
+          <span class="tab-label"><span>🗓️</span> Listas Generadas</span>
           <span class="badge-count" id="badgeEventosCount">0</span>
         </button>
         <button class="nav-tab" data-tab="basedatos" onclick="switchTab('basedatos', this)">
-          🗄️ Base de Datos
+          <span class="tab-label"><span>🗄️</span> Base de Datos</span>
           <span class="badge-count" id="badgeAsistenciasCount">0</span>
         </button>
         <button class="nav-tab" data-tab="configuracion" onclick="switchTab('configuracion', this)">
-          ⚙️ Configuración
+          <span class="tab-label"><span>⚙️</span> Configuración</span>
         </button>
       </nav>
-    </div>
-  </header>
 
-  <!-- BARRA DE TELEMETRÍA Y REGLA DE 30 MINUTOS -->
-  <div class="telemetry-bar">
-    <div class="telemetry-inner">
-      <div class="telemetry-items">
-        <span class="sys-pill">
+      <div class="sidebar-footer">
+        <div class="sys-pill">
           <span class="live-dot"></span>
-          Base de Datos Centralizada Activa
-        </span>
-        <span class="sys-pill" id="sysCpuInfo">CPU: --</span>
-        <span class="sys-pill" id="sysRamInfo">RAM: --</span>
-        <span class="sys-pill" id="sysNetInfo">URL Red: --</span>
+          <span>Base de Datos Central</span>
+        </div>
+        <div style="font-size:0.72rem;color:#94a3b8;line-height:1.45;">
+          <span id="sysNetInfo">Red: --</span><br/>
+          <span>⏱️ Cierre automático: 30 min.</span>
+        </div>
       </div>
-      <div>
-        <span>⏱️ Vigencia automática de cada lista: <b>Se desactiva 30 min después de Fecha y Hora</b></span>
-      </div>
-    </div>
-  </div>
+    </aside>
 
-  <!-- CONTENEDOR DE LAS 4 PESTAÑAS -->
-  <div class="main-container">
-    <!-- ════════════════════════════════════════════════════════════════════════
-         PESTAÑA 1: PROGRAMAR REUNIÓN (SOLA)
-         ════════════════════════════════════════════════════════════════════════ -->
+    <!-- ÁREA DE CONTENIDO A LA DERECHA -->
+    <div class="main-content-area">
+      <header class="content-header">
+        <div class="content-header-title" id="currentSectionTitle">
+          ➕ Programar Nueva Reunión y Generar Lista de Asistencia
+        </div>
+        <div class="content-header-status">
+          <span class="header-pill">#0099A8 Activo</span>
+        </div>
+      </header>
+
+      <!-- CONTENEDOR DE LAS 4 PESTAÑAS -->
+      <div class="main-container">
+        <!-- ════════════════════════════════════════════════════════════════════════
+             PESTAÑA 1: PROGRAMAR REUNIÓN (SOLA)
+             ════════════════════════════════════════════════════════════════════════ -->
     <section class="tab-pane active" id="tab-programar">
       <div class="schedule-layout">
         <div class="panel-card">
@@ -1184,10 +1311,28 @@
                 <button type="submit" class="btn-primary" id="addOptionBtn">+ Agregar a este Campo</button>
               </form>
 
+              <!-- BARRA DE ACCIÓN MASIVA PARA OPCIONES -->
+              <div id="batchItemsToolbar" style="display:none;background:#e6f6f8;border:1.5px solid #0099a8;border-radius:8px;padding:8px 14px;margin-bottom:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+                <div style="font-weight:700;color:#007784;font-size:0.84rem;">
+                  <span id="batchCountNum">0</span> opción(es) seleccionada(s)
+                </div>
+                <div style="display:flex;gap:8px;">
+                  <button type="button" class="btn-outline" style="padding:5px 12px;font-size:0.78rem;" onclick="toggleSelectAllCatalogItems(false)">
+                    Cancelar selección
+                  </button>
+                  <button type="button" class="btn-primary" style="background:#dc2626;border-color:#dc2626;padding:5px 14px;font-size:0.78rem;font-weight:700;" onclick="executeBatchDeleteItems()">
+                    🗑️ Eliminar Seleccionadas
+                  </button>
+                </div>
+              </div>
+
               <div class="db-table-wrap">
                 <table class="db-table">
                   <thead>
                     <tr>
+                      <th style="width:38px;text-align:center;">
+                        <input type="checkbox" id="checkAllCatalogItems" onchange="toggleSelectAllCatalogItems(this.checked)" title="Seleccionar todas" />
+                      </th>
                       <th>Nombre de la Opción</th>
                       <th>Código / Abreviatura</th>
                       <th>Estado</th>
@@ -1262,6 +1407,8 @@
         </div>
       </div>
     </section>
+      </div>
+    </div>
   </div>
 
   <!-- MODAL DE CÓDIGO QR Y VÍNCULO INDIVIDUAL POR LISTA -->
@@ -1358,6 +1505,40 @@
     </div>
   </div>
 
+  <!-- MODAL: ELIMINACIÓN MASIVA DE CAMPOS DE CONFIGURACIÓN -->
+  <div class="modal-backdrop" id="batchCamposModalBackdrop">
+    <div class="qr-modal" style="max-width:520px;text-align:left;">
+      <div class="qr-modal-header" style="background:#1f2937;">
+        <strong>🗑️ ELIMINACIÓN MASIVA DE CAMPOS</strong>
+        <button
+          type="button"
+          onclick="closeBatchDeleteCamposModal()"
+          style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;"
+        >&times;</button>
+      </div>
+      <div class="qr-modal-body" style="padding:20px;">
+        <p style="font-size:0.86rem;color:var(--slate);margin-bottom:12px;">
+          Seleccione los campos personalizados que desea eliminar masivamente con todas sus opciones configuradas:
+        </p>
+        <div id="batchCamposListContainer" style="max-height:220px;overflow-y:auto;border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;background:#fff;margin-bottom:14px;display:flex;flex-direction:column;gap:6px;">
+          <!-- Items generados dinámicamente -->
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+          <label style="font-size:0.82rem;font-weight:700;color:var(--dark-gray);cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="checkAllCustomCampos" onchange="toggleSelectAllCustomCampos(this.checked)" />
+            <span>Seleccionar todos</span>
+          </label>
+          <div style="display:flex;gap:8px;">
+            <button type="button" class="btn-outline" onclick="closeBatchDeleteCamposModal()">Cancelar</button>
+            <button type="button" class="btn-primary" style="background:#dc2626;border-color:#dc2626;font-weight:700;" onclick="executeBatchDeleteCampos()">
+              🗑️ Eliminar Campos Seleccionados
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toastMsg"></div>
 
   <script>
@@ -1389,11 +1570,25 @@
         .replace(/"/g, '&quot;');
     }
 
+    const tabSectionTitles = {
+      programar: '➕ Programar Nueva Reunión y Generar Lista de Asistencia',
+      listas: '🗓️ Listas Generadas — Vista Calendario y Accesos',
+      basedatos: '🗄️ Base de Datos Centralizada de Asistencias',
+      configuracion: '⚙️ Configuración y Catálogos Desplegables',
+    };
+
     function switchTab(tabId, btn) {
       document.querySelectorAll('.tab-pane').forEach((el) => el.classList.remove('active'));
       document.querySelectorAll('.nav-tab').forEach((el) => el.classList.remove('active'));
-      document.getElementById(`tab-${tabId}`).classList.add('active');
-      if (btn) btn.classList.add('active');
+      const targetPane = document.getElementById(`tab-${tabId}`);
+      if (targetPane) targetPane.classList.add('active');
+      const activeBtn = btn || document.querySelector(`.nav-tab[data-tab="${tabId}"]`);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const titleEl = document.getElementById('currentSectionTitle');
+      if (titleEl && tabSectionTitles[tabId]) {
+        titleEl.textContent = tabSectionTitles[tabId];
+      }
 
       if (tabId === 'listas') {
         renderCalendar();
@@ -1506,25 +1701,33 @@
 
       // Proceso ISO
       const procSelect = document.getElementById('evProcesoIso');
+      const prevProc = procSelect.value;
       const procesos = activeOf('PROCESO_ISO');
-      procSelect.innerHTML = '<option value="">-- Seleccione Proceso ISO --</option>';
+      procSelect.innerHTML = '<option value="No Aplica">No Aplica</option>';
       for (const p of procesos) {
-        const opt = document.createElement('option');
-        opt.value = p.nombre;
-        opt.textContent = p.nombre;
-        procSelect.appendChild(opt);
+        if (p.nombre.trim().toLowerCase() !== 'no aplica') {
+          const opt = document.createElement('option');
+          opt.value = p.nombre;
+          opt.textContent = p.nombre;
+          procSelect.appendChild(opt);
+        }
       }
+      procSelect.value = prevProc || 'No Aplica';
 
       // Planificación
       const planSelect = document.getElementById('evPlanificacion');
+      const prevPlan = planSelect.value;
       const planes = activeOf('PLANIFICACION');
-      planSelect.innerHTML = '<option value="">-- Seleccione Planificación --</option>';
+      planSelect.innerHTML = '<option value="No Aplica">No Aplica</option>';
       for (const pl of planes) {
-        const opt = document.createElement('option');
-        opt.value = pl.nombre;
-        opt.textContent = pl.nombre;
-        planSelect.appendChild(opt);
+        if (pl.nombre.trim().toLowerCase() !== 'no aplica') {
+          const opt = document.createElement('option');
+          opt.value = pl.nombre;
+          opt.textContent = pl.nombre;
+          planSelect.appendChild(opt);
+        }
       }
+      planSelect.value = prevPlan || 'No Aplica';
     }
 
     function updateInvitedUnitsCounter() {
@@ -1598,6 +1801,8 @@
 
       document.getElementById('evTema').value = '';
       document.getElementById('evLugar').value = '';
+      document.getElementById('evProcesoIso').value = 'No Aplica';
+      document.getElementById('evPlanificacion').value = 'No Aplica';
       selectAllInvitedUnits(false);
 
       showToast('Reunión programada con éxito. Vínculo y QR generados.');
@@ -2013,11 +2218,16 @@
       if (!container) return;
 
       let html = `
-        <div style="background:var(--dark-gray);color:#fff;padding:12px 16px;font-weight:800;font-size:0.82rem;text-transform:uppercase;border-bottom:3px solid var(--primary);display:flex;justify-content:space-between;align-items:center;">
+        <div style="background:var(--dark-gray);color:#fff;padding:12px 14px;font-weight:800;font-size:0.8rem;text-transform:uppercase;border-bottom:3px solid var(--primary);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
           <span>Listas Desplegables</span>
-          <button type="button" class="btn-primary" style="padding:4px 9px;font-size:0.74rem;" onclick="openNewCampoModal()">
-            + Nuevo Campo
-          </button>
+          <div style="display:flex;gap:5px;">
+            <button type="button" class="btn-outline" style="padding:4px 7px;font-size:0.7rem;color:#ffffff;border-color:rgba(255,255,255,0.4);" onclick="openBatchDeleteCamposModal()" title="Eliminación masiva de campos">
+              🗑️ Masiva
+            </button>
+            <button type="button" class="btn-primary" style="padding:4px 9px;font-size:0.72rem;" onclick="openNewCampoModal()">
+              + Nuevo
+            </button>
+          </div>
         </div>
       `;
 
@@ -2168,8 +2378,12 @@
     function renderCatalogEditorTable() {
       const items = catalogosGrouped[currentCatalogCategory] || [];
       const tbody = document.getElementById('catalogItemsTableBody');
+      const checkAll = document.getElementById('checkAllCatalogItems');
+      if (checkAll) checkAll.checked = false;
+      updateBatchDeleteUi();
+
       if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted);">Sin opciones registradas para este campo aún. Agregue una arriba.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:22px;color:var(--muted);">Sin opciones registradas para este campo aún. Agregue una arriba.</td></tr>';
         return;
       }
 
@@ -2177,6 +2391,9 @@
         .map(
           (item) => `
         <tr>
+          <td style="text-align:center;">
+            <input type="checkbox" class="cat-item-checkbox" value="${item.id}" onchange="updateBatchDeleteUi()" />
+          </td>
           <td><strong>${escapeHtml(item.nombre)}</strong></td>
           <td>${escapeHtml(item.codigo || '-')}</td>
           <td>
@@ -2214,6 +2431,120 @@
       `
         )
         .join('');
+    }
+
+    function toggleSelectAllCatalogItems(state) {
+      document.querySelectorAll('.cat-item-checkbox').forEach((cb) => (cb.checked = state));
+      const checkAll = document.getElementById('checkAllCatalogItems');
+      if (checkAll) checkAll.checked = state;
+      updateBatchDeleteUi();
+    }
+
+    function updateBatchDeleteUi() {
+      const selected = Array.from(document.querySelectorAll('.cat-item-checkbox:checked'));
+      const toolbar = document.getElementById('batchItemsToolbar');
+      const countEl = document.getElementById('batchCountNum');
+      if (!toolbar || !countEl) return;
+      countEl.textContent = selected.length;
+      if (selected.length > 0) {
+        toolbar.style.display = 'flex';
+      } else {
+        toolbar.style.display = 'none';
+      }
+    }
+
+    async function executeBatchDeleteItems() {
+      const selected = Array.from(document.querySelectorAll('.cat-item-checkbox:checked')).map((c) => Number(c.value));
+      if (selected.length === 0) return;
+      if (!confirm(`¿Eliminar definitivamente las ${selected.length} opciones seleccionadas de este campo?`)) return;
+
+      try {
+        const res = await fetch('/api/catalogos/items/batch-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: selected }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'No se pudieron eliminar las opciones.');
+          return;
+        }
+        showToast(`${data.deletedCount} opciones eliminadas exitosamente.`);
+        await loadCatalogos();
+        selectCatalogCategory(currentCatalogCategory);
+      } catch (err) {
+        alert('Error de conexión al eliminar opciones.');
+      }
+    }
+
+    function openBatchDeleteCamposModal() {
+      const customCampos = (catalogosCampos || []).filter((c) => c.es_sistema === 0);
+      const container = document.getElementById('batchCamposListContainer');
+      const checkAll = document.getElementById('checkAllCustomCampos');
+      if (checkAll) checkAll.checked = false;
+
+      if (customCampos.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center;padding:18px;color:var(--muted);font-size:0.84rem;">
+            No hay campos personalizados creados para eliminar masivamente.<br/>
+            <small style="color:#64748b;">(Los campos base del sistema como Unidad, Cargo, Tipo, Sexo, Proceso ISO y Planificación están protegidos).</small>
+          </div>
+        `;
+      } else {
+        container.innerHTML = customCampos
+          .map(
+            (c) => `
+          <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;background:#f8fafc;cursor:pointer;border:1px solid #e2e8f0;">
+            <input type="checkbox" class="batch-campo-checkbox" value="${escapeHtml(c.codigo)}" />
+            <span style="font-size:1.1rem;">${c.icono || '📋'}</span>
+            <div style="flex:1;">
+              <strong>${escapeHtml(c.nombre)}</strong>
+              <div style="font-size:0.75rem;color:var(--muted);">${(catalogosGrouped[c.codigo] || []).length} opciones registradas</div>
+            </div>
+          </label>
+        `
+          )
+          .join('');
+      }
+
+      document.getElementById('batchCamposModalBackdrop').classList.add('open');
+    }
+
+    function closeBatchDeleteCamposModal() {
+      document.getElementById('batchCamposModalBackdrop').classList.remove('open');
+    }
+
+    function toggleSelectAllCustomCampos(state) {
+      document.querySelectorAll('.batch-campo-checkbox').forEach((cb) => (cb.checked = state));
+    }
+
+    async function executeBatchDeleteCampos() {
+      const selected = Array.from(document.querySelectorAll('.batch-campo-checkbox:checked')).map((cb) => cb.value);
+      if (selected.length === 0) {
+        alert('Seleccione al menos un campo personalizado para eliminar.');
+        return;
+      }
+      if (!confirm(`¿Eliminar definitivamente los ${selected.length} campos seleccionados con todas sus opciones?`)) return;
+
+      try {
+        const res = await fetch('/api/catalogos/campos/batch-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codigos: selected }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'No se pudieron eliminar los campos.');
+          return;
+        }
+        closeBatchDeleteCamposModal();
+        showToast(`${data.deletedCount} campo(s) personalizado(s) eliminado(s) exitosamente.`);
+        currentCatalogCategory = 'UNIDAD';
+        await loadCatalogos();
+        selectCatalogCategory('UNIDAD');
+      } catch (err) {
+        alert('Error de conexión al eliminar campos.');
+      }
     }
 
     document.getElementById('addCatalogItemForm').addEventListener('submit', async (e) => {
@@ -2395,12 +2726,12 @@
       ctx.fillRect(0, 0, canvas.width, 16);
 
       ctx.fillStyle = '#1f2937';
-      ctx.font = 'bold 22px Segoe UI, sans-serif';
+      ctx.font = 'bold 22px "Franklin Gothic", Arial, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('ASISTENCIA DE PARTICIPACIÓN', 300, 52);
 
       ctx.fillStyle = '#0099a8';
-      ctx.font = 'bold 16px Segoe UI, sans-serif';
+      ctx.font = 'bold 16px "Franklin Gothic", Arial, sans-serif';
       const shortTema =
         activeQrModalEvent.tema.length > 48
           ? activeQrModalEvent.tema.slice(0, 48) + '...'
@@ -2411,21 +2742,45 @@
       qrImage.crossOrigin = 'anonymous';
       qrImage.onload = () => {
         ctx.drawImage(qrImage, 90, 100, 420, 420);
-        ctx.fillStyle = '#334155';
-        ctx.font = 'bold 15px Segoe UI, sans-serif';
-        ctx.fillText(
-          `Fecha: ${activeQrModalEvent.fecha}  |  Hora: ${activeQrModalEvent.hora} (Cierra ${activeQrModalEvent.hora_cierre})`,
-          300,
-          555
-        );
-        ctx.fillStyle = '#0099a8';
-        ctx.font = '13px Consolas, monospace';
-        ctx.fillText(activeQrModalEvent.vinculo, 300, 590);
 
-        const a = document.createElement('a');
-        a.download = `QR-${activeQrModalEvent.token}.png`;
-        a.href = canvas.toDataURL('image/png');
-        a.click();
+        const finishCanvas = () => {
+          ctx.fillStyle = '#334155';
+          ctx.font = 'bold 15px "Franklin Gothic", Arial, sans-serif';
+          ctx.fillText(
+            `Fecha: ${activeQrModalEvent.fecha}  |  Hora: ${activeQrModalEvent.hora} (Cierra ${activeQrModalEvent.hora_cierre})`,
+            300,
+            555
+          );
+          ctx.fillStyle = '#0099a8';
+          ctx.font = '13px Consolas, monospace';
+          ctx.fillText(activeQrModalEvent.vinculo, 300, 590);
+
+          const a = document.createElement('a');
+          a.download = `QR-${activeQrModalEvent.token}.png`;
+          a.href = canvas.toDataURL('image/png');
+          a.click();
+        };
+
+        const logo = new Image();
+        logo.crossOrigin = 'anonymous';
+        logo.onload = () => {
+          const logoW = 100;
+          const logoH = Math.round(logoW * (297 / 500));
+          const logoX = 90 + (420 - logoW) / 2;
+          const logoY = 100 + (420 - logoH) / 2;
+          const pad = 6;
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#0099a8';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.roundRect(logoX - pad, logoY - pad, logoW + pad * 2, logoH + pad * 2, 8);
+          ctx.fill();
+          ctx.stroke();
+          ctx.drawImage(logo, logoX, logoY, logoW, logoH);
+          finishCanvas();
+        };
+        logo.onerror = () => finishCanvas();
+        logo.src = '/image/uamqr.png';
       };
       qrImage.src = img.src;
     }

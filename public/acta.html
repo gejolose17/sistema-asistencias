@@ -93,6 +93,16 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn:hover {
+      background: #007784;
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: scale(0.96);
     }
 
     .btn.secondary {
@@ -269,14 +279,14 @@
   <div class="sheet">
     <div class="sheet-header">
       <div class="sheet-logo">
-        <img id="leftLogo" src="/uploads/logo-left-default.png" alt="Logo Izquierdo" />
+        <img id="leftLogo" src="/image/uamh.png" alt="Logo UAM" />
       </div>
       <div class="sheet-title-box">
         <h1 id="headerTitle">ASISTENCIA DE PARTICIPACIÓN</h1>
         <p>Registro Oficial de Asistencia y Participación Institucional</p>
       </div>
       <div class="sheet-logo right">
-        <img id="rightLogo" src="/uploads/logo-right-default.jpeg" alt="Logo Derecho" />
+        <img id="rightLogo" src="/image/uamh.png" alt="Logo UAM" />
       </div>
     </div>
 

@@ -452,6 +452,31 @@
 
     .btn-save:hover {
       background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    .btn-save:active {
+      transform: scale(0.97);
+    }
+
+    .btn-clear-sig {
+      background: rgba(255, 255, 255, 0.15);
+      color: var(--white);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 6px 13px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .btn-clear-sig:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .btn-clear-sig:active {
+      transform: scale(0.95);
     }
 
     .btn-save:disabled {
@@ -633,7 +658,7 @@
     <!-- HEADER CON LOGO A LA IZQUIERDA, CENTRO EN MAYÚSCULAS Y LOGO A LA DERECHA EDITABLES -->
     <header class="inst-header" id="headerContainer">
       <div class="logo-slot" title="Logo Izquierdo">
-        <img id="logoLeftImg" src="/uploads/logo-left-default.png" alt="Logo Izquierdo" />
+        <img id="logoLeftImg" src="/image/uamh.png" alt="Logo UAM" />
         <button type="button" class="logo-edit-btn" onclick="triggerLogoUpload('left')">✎ Logo</button>
       </div>
 
@@ -644,7 +669,7 @@
       </div>
 
       <div class="logo-slot" title="Logo Derecho">
-        <img id="logoRightImg" src="/uploads/logo-right-default.jpeg" alt="Logo Derecho" />
+        <img id="logoRightImg" src="/image/uamh.png" alt="Logo UAM" />
         <button type="button" class="logo-edit-btn" onclick="triggerLogoUpload('right')">✎ Logo</button>
       </div>
 

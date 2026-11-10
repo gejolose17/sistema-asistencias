@@ -103,11 +103,16 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      transition: background 0.15s;
+      transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .btn:hover {
       background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: scale(0.96);
     }
 
     .btn.secondary {
@@ -377,14 +382,14 @@
     <!-- HEADER INSTITUCIONAL -->
     <header class="inst-header">
       <div class="logo-box">
-        <img id="leftLogoImg" src="/uploads/logo-left-default.png" alt="Logo Izquierdo" />
+        <img id="leftLogoImg" src="/image/uamh.png" alt="Logo UAM" />
       </div>
       <div class="header-center">
         <h1 class="header-title" id="instTitle">ASISTENCIA DE PARTICIPACIÓN</h1>
         <p class="header-sub" id="instSub">Registro Oficial de Participación y Firmas</p>
       </div>
       <div class="logo-box">
-        <img id="rightLogoImg" src="/uploads/logo-right-default.jpeg" alt="Logo Derecho" />
+        <img id="rightLogoImg" src="/image/uamh.png" alt="Logo UAM" />
       </div>
     </header>
 
