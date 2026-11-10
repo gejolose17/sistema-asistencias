@@ -734,8 +734,8 @@ async function requestHandler(req, res) {
         config: {
           titulo_header: configs.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN',
           subtitulo_header: configs.subtitulo_header || '',
-          logo_izquierdo: evento.logo_izquierdo_custom || configs.logo_izquierdo,
-          logo_derecho: evento.logo_derecho_custom || configs.logo_derecho,
+          logo_izquierdo: evento.logo_izquierdo_custom || configs.logo_izquierdo || '/image/uamh.png',
+          logo_derecho: evento.logo_derecho_custom || configs.logo_derecho || '/image/uverde.png',
           mensaje_gracias_titulo: configs.mensaje_gracias_titulo || '¡Gracias por llenar esta asistencia!',
           mensaje_gracias_cuerpo:
             configs.mensaje_gracias_cuerpo ||
@@ -1112,6 +1112,24 @@ async function requestHandler(req, res) {
 
     if (pathname === '/' || pathname === '/admin') {
       return serveStaticFile(res, path.join(PUBLIC_DIR, 'index.html'));
+    }
+
+    if (pathname.startsWith('/image/') && method === 'GET') {
+      const requestedName = path.basename(pathname);
+      const roots = [path.join(PUBLIC_DIR, 'image'), path.join(__dirname, 'image')];
+      for (const rootDir of roots) {
+        const directPath = path.join(rootDir, requestedName);
+        if (fs.existsSync(directPath)) {
+          return serveStaticFile(res, directPath);
+        }
+        try {
+          const entries = fs.readdirSync(rootDir);
+          const match = entries.find((e) => e.toLowerCase() === requestedName.toLowerCase());
+          if (match) {
+            return serveStaticFile(res, path.join(rootDir, match));
+          }
+        } catch (_) {}
+      }
     }
 
     const safePath = path.normalize(pathname).replace(/^(\.\.[/\\])+/, '');
