@@ -630,7 +630,7 @@ async function requestHandler(req, res) {
 
       const svg = generateQRSVG(targetUrl, {
         sizePx: Number(parsedUrl.searchParams.get('size') || 320),
-        darkColor: '#1f2937',
+        darkColor: '#0099a8',
         lightColor: '#ffffff',
         margin: 3,
       });
