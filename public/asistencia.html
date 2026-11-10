@@ -1019,9 +1019,39 @@
       countdownInterval = setInterval(tick, 1000);
     }
 
+    const STORAGE_KEY = 'uam_asistencias_state_v2';
+
+    async function trySyncFromLocalBackup() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (!parsed || (!Array.isArray(parsed.allEventosRaw) && !Array.isArray(parsed.eventos))) return false;
+        const syncRes = await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventos: parsed.allEventosRaw || parsed.eventos || [],
+            asistencias: parsed.allAsistenciasRaw || [],
+            purgedEventIds: parsed.purgedEventIds || [],
+            purgedAsistenciaIds: parsed.purgedAsistenciaIds || [],
+          }),
+        });
+        return syncRes.ok;
+      } catch (_) {
+        return false;
+      }
+    }
+
     async function loadEventForm() {
       try {
-        const res = await fetch(`/api/public/evento/${encodeURIComponent(eventToken)}`);
+        let res = await fetch(`/api/public/evento/${encodeURIComponent(eventToken)}`);
+        if (res.status === 404) {
+          const synced = await trySyncFromLocalBackup();
+          if (synced) {
+            res = await fetch(`/api/public/evento/${encodeURIComponent(eventToken)}`);
+          }
+        }
         const data = await res.json();
 
         if (!res.ok) {
@@ -1064,40 +1094,31 @@
         }
         document.getElementById('meetingMetaChips').innerHTML = chips.join('');
 
-        // Poblar Lista Desplegable de Unidad (destacando las Unidades Invitadas)
+        // Poblar Lista Desplegable de Unidad EXCLUSIVAMENTE con las Unidades Invitadas a esta reunión
         const unidadSelect = document.getElementById('unidadSelect');
         const allUnits = catalogos.UNIDAD || data.unidades || [];
-        const invitedList = currentEvent.unidades_invitadas_lista || [];
+        const invitedList = Array.isArray(currentEvent.unidades_invitadas_lista)
+          ? currentEvent.unidades_invitadas_lista
+          : [];
 
-        unidadSelect.innerHTML = '<option value="">-- Seleccione su Unidad --</option>';
+        unidadSelect.innerHTML = '<option value="">-- Seleccione su Unidad Invitada --</option>';
         if (invitedList.length > 0) {
-          const grpInv = document.createElement('optgroup');
-          grpInv.label = 'Unidades Convocadas / Invitadas';
           for (const uName of invitedList) {
+            const foundCatalog = allUnits.find((u) => u.nombre === uName);
             const opt = document.createElement('option');
             opt.value = uName;
-            opt.textContent = uName;
-            grpInv.appendChild(opt);
+            opt.textContent =
+              foundCatalog && foundCatalog.codigo ? `${uName} (${foundCatalog.codigo})` : uName;
+            unidadSelect.appendChild(opt);
           }
-          unidadSelect.appendChild(grpInv);
-
-          const otherUnits = allUnits.filter((u) => !invitedList.includes(u.nombre));
-          if (otherUnits.length > 0) {
-            const grpOther = document.createElement('optgroup');
-            grpOther.label = 'Otras Unidades Institucionales';
-            for (const u of otherUnits) {
-              const opt = document.createElement('option');
-              opt.value = u.nombre;
-              opt.textContent = u.nombre;
-              grpOther.appendChild(opt);
-            }
-            unidadSelect.appendChild(grpOther);
+          if (invitedList.length === 1) {
+            unidadSelect.value = invitedList[0];
           }
         } else {
           for (const u of allUnits) {
             const opt = document.createElement('option');
             opt.value = u.nombre;
-            opt.textContent = u.nombre;
+            opt.textContent = u.codigo ? `${u.nombre} (${u.codigo})` : u.nombre;
             unidadSelect.appendChild(opt);
           }
         }
@@ -1165,17 +1186,28 @@
       saveBtn.innerHTML = '<span>Guardando asistencia...</span>';
 
       try {
-        const res = await fetch(`/api/public/asistencia/${encodeURIComponent(eventToken)}`, {
+        const submitPayload = JSON.stringify({
+          unidad,
+          cargo,
+          sexo,
+          nombre,
+          firma_base64: firmaBase64,
+        });
+        let res = await fetch(`/api/public/asistencia/${encodeURIComponent(eventToken)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            unidad,
-            cargo,
-            sexo,
-            nombre,
-            firma_base64: firmaBase64,
-          }),
+          body: submitPayload,
         });
+        if (res.status === 404) {
+          const synced = await trySyncFromLocalBackup();
+          if (synced) {
+            res = await fetch(`/api/public/asistencia/${encodeURIComponent(eventToken)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: submitPayload,
+            });
+          }
+        }
 
         const result = await res.json();
         if (!res.ok) {
@@ -1189,6 +1221,21 @@
           return;
         }
 
+        const reg = result.registro || {};
+        try {
+          const rawState = localStorage.getItem(STORAGE_KEY);
+          if (rawState && reg && reg.id) {
+            const parsed = JSON.parse(rawState);
+            if (parsed && Array.isArray(parsed.allAsistenciasRaw)) {
+              const exists = parsed.allAsistenciasRaw.some((a) => Number(a.id) === Number(reg.id));
+              if (!exists) {
+                parsed.allAsistenciasRaw.unshift(reg);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+              }
+            }
+          }
+        } catch (_) {}
+
         document.getElementById('activeFormSection').style.display = 'none';
         document.getElementById('thankYouSection').style.display = 'block';
         document.getElementById('thankYouTitle').textContent =
@@ -1196,7 +1243,6 @@
         document.getElementById('thankYouBody').textContent =
           result.mensaje_cuerpo || 'Su asistencia ha sido guardada correctamente.';
 
-        const reg = result.registro || {};
         document.getElementById('receiptDetails').innerHTML = `
           <div class="receipt-row"><span>Folio:</span><strong>#${reg.id}</strong></div>
           <div class="receipt-row"><span>Nombre:</span><strong>${escapeHtml(reg.nombre)}</strong></div>

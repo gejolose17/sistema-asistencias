@@ -353,6 +353,25 @@
     }
 
     async function loadSheet() {
+      try {
+        const raw = localStorage.getItem('uam_asistencias_state_v2');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.allEventosRaw)) {
+            await fetch('/api/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                eventos: parsed.allEventosRaw || [],
+                asistencias: parsed.allAsistenciasRaw || [],
+                purgedEventIds: parsed.purgedEventIds || [],
+                purgedAsistenciaIds: parsed.purgedAsistenciaIds || [],
+              }),
+            });
+          }
+        }
+      } catch (_) {}
+
       const [evRes, asisRes] = await Promise.all([
         fetch(`/api/public/evento/${encodeURIComponent(token)}`),
         fetch(`/api/asistencias?token=${encodeURIComponent(token)}`),

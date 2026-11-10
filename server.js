@@ -17,6 +17,7 @@ const {
   addCampoCatalogo,
   deleteCampoCatalogo,
   getCatalogos,
+  syncClientDataToDb,
   getNowISO,
 } = require('./lib/db');
 const { generateQRSVG, generateQRMatrix } = require('./lib/qrcode');
@@ -209,13 +210,65 @@ async function requestHandler(req, res) {
     if (pathname === '/api/stream' && method === 'GET') {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: process.env.VERCEL ? 'close' : 'keep-alive',
       });
-      res.write(`event: connected\ndata: ${JSON.stringify({ time: getNowISO() })}\n\n`);
+      res.write(`retry: 15000\nevent: connected\ndata: ${JSON.stringify({ time: getNowISO(), serverless: Boolean(process.env.VERCEL) })}\n\n`);
+      if (process.env.VERCEL) {
+        res.end();
+        return;
+      }
       sseClients.add(res);
       req.on('close', () => sseClients.delete(res));
       return;
+    }
+
+    // ── 1.1. Sincronización Bidireccional Cliente <-> Servidor (Persistencia Total) ──
+    if (pathname === '/api/sync' && method === 'POST') {
+      const body = await readJsonBody(req);
+      syncClientDataToDb(body);
+
+      const baseUrl = getEffectiveBaseUrl(req);
+      const allEvRows = db.prepare('SELECT * FROM eventos ORDER BY fecha DESC, hora DESC').all();
+      const allEventosRaw = allEvRows.map((ev) => buildEventResponse(ev, baseUrl));
+      const eventosActivos = allEventosRaw.filter((ev) => !ev.eliminado);
+      const eventosPapelera = allEventosRaw.filter((ev) => Boolean(ev.eliminado));
+
+      const allAsisRows = db
+        .prepare(`
+          SELECT
+            a.*,
+            e.tema as evento_tema,
+            e.fecha as evento_fecha,
+            e.hora as evento_hora,
+            e.token as evento_token,
+            e.lugar as evento_lugar,
+            e.tipo as evento_tipo,
+            e.direccion_organiza as evento_direccion_organiza,
+            e.proceso_iso as evento_proceso_iso,
+            e.planificacion as evento_planificacion
+          FROM asistencias a
+          LEFT JOIN eventos e ON e.id = a.evento_id
+          ORDER BY a.id DESC
+        `)
+        .all();
+
+      const asistenciasPapelera = allAsisRows.filter((a) => Boolean(a.eliminado));
+
+      return sendJSON(res, 200, {
+        ok: true,
+        baseUrl,
+        eventos: eventosActivos,
+        allEventosRaw,
+        allAsistenciasRaw: allAsisRows,
+        papelera: {
+          eventos: eventosPapelera,
+          asistencias: asistenciasPapelera,
+          totalEventos: eventosPapelera.length,
+          totalAsistencias: asistenciasPapelera.length,
+          total: eventosPapelera.length + asistenciasPapelera.length,
+        },
+      });
     }
 
     // ── 2. Información del Sistema y Recursos ────────────────────────────────
@@ -501,12 +554,13 @@ async function requestHandler(req, res) {
         token = slugifyToken(tema);
       }
 
+      const nowIso = getNowISO();
       db.prepare(`
         INSERT INTO eventos (
           id, token, tema, fecha, hora, direccion_organiza, unidades_invitadas,
           lugar, tipo, proceso_iso, planificacion, organizador, descripcion,
-          duracion_ventana_min, estado_manual, creado_en
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AUTO', ?)
+          duracion_ventana_min, estado_manual, creado_en, actualizado_en
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AUTO', ?, ?)
       `).run(
         id,
         token,
@@ -522,7 +576,8 @@ async function requestHandler(req, res) {
         direccionOrganiza,
         '',
         duracionVentana,
-        getNowISO()
+        nowIso,
+        nowIso
       );
 
       const creado = db.prepare('SELECT * FROM eventos WHERE id = ?').get(id);
@@ -565,12 +620,13 @@ async function requestHandler(req, res) {
             : existing.duracion_ventana_min;
         const estadoManual =
           body.estado_manual !== undefined ? String(body.estado_manual) : existing.estado_manual;
+        const nowIso = getNowISO();
 
         db.prepare(`
           UPDATE eventos
           SET tema = ?, fecha = ?, hora = ?, direccion_organiza = ?, unidades_invitadas = ?,
               lugar = ?, tipo = ?, proceso_iso = ?, planificacion = ?,
-              duracion_ventana_min = ?, estado_manual = ?
+              duracion_ventana_min = ?, estado_manual = ?, actualizado_en = ?
           WHERE id = ?
         `).run(
           tema,
@@ -584,13 +640,15 @@ async function requestHandler(req, res) {
           planificacion,
           duracionVentana,
           estadoManual,
+          nowIso,
           eventoId
         );
 
-        db.prepare('UPDATE asistencias SET tema = ?, fecha = ?, hora = ? WHERE evento_id = ?').run(
+        db.prepare('UPDATE asistencias SET tema = ?, fecha = ?, hora = ?, actualizado_en = ? WHERE evento_id = ?').run(
           tema,
           fecha,
           hora,
+          nowIso,
           eventoId
         );
 
@@ -602,8 +660,8 @@ async function requestHandler(req, res) {
 
       if (method === 'DELETE') {
         const now = getNowISO();
-        db.prepare('UPDATE eventos SET eliminado = 1, eliminado_en = ? WHERE id = ?').run(now, eventoId);
-        db.prepare('UPDATE asistencias SET eliminado = 1, eliminado_en = ? WHERE evento_id = ?').run(now, eventoId);
+        db.prepare('UPDATE eventos SET eliminado = 1, eliminado_en = ?, actualizado_en = ? WHERE id = ?').run(now, now, eventoId);
+        db.prepare('UPDATE asistencias SET eliminado = 1, eliminado_en = ?, actualizado_en = ? WHERE evento_id = ?').run(now, now, eventoId);
         broadcastSSE('evento_eliminado', { id: eventoId, papelera: true });
         broadcastSSE('papelera_actualizada', {});
         return sendJSON(res, 200, { ok: true, softDeleted: true });
@@ -654,11 +712,25 @@ async function requestHandler(req, res) {
       const status = buildEventResponse(evento, getEffectiveBaseUrl(req));
       const configs = getAllConfigs();
       const { grouped } = getCatalogos({ soloActivos: true });
+      const allUnidadesCatalog = grouped.UNIDAD || [];
+      const invitedNames = Array.isArray(status.unidades_invitadas_lista)
+        ? status.unidades_invitadas_lista
+        : [];
+      const invitedUnidadesCatalog =
+        invitedNames.length > 0
+          ? invitedNames.map((uName) => {
+              const found = allUnidadesCatalog.find((u) => u.nombre === uName);
+              return found || { nombre: uName, codigo: '' };
+            })
+          : allUnidadesCatalog;
 
       return sendJSON(res, 200, {
         evento: status,
-        unidades: grouped.UNIDAD || [],
-        catalogos: grouped,
+        unidades: invitedUnidadesCatalog,
+        catalogos: {
+          ...grouped,
+          UNIDAD: invitedUnidadesCatalog,
+        },
         config: {
           titulo_header: configs.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN',
           subtitulo_header: configs.subtitulo_header || '',
@@ -700,6 +772,15 @@ async function requestHandler(req, res) {
       if (!unidad) {
         return sendJSON(res, 400, { error: 'Por favor seleccione su Unidad de la lista desplegable.' });
       }
+      if (
+        Array.isArray(status.unidades_invitadas_lista) &&
+        status.unidades_invitadas_lista.length > 0 &&
+        !status.unidades_invitadas_lista.includes(unidad)
+      ) {
+        return sendJSON(res, 400, {
+          error: 'La unidad seleccionada no se encuentra dentro de las unidades invitadas a esta reunión.',
+        });
+      }
       if (!nombre || nombre.length < 2) {
         return sendJSON(res, 400, { error: 'Por favor ingrese su Nombre completo.' });
       }
@@ -719,8 +800,8 @@ async function requestHandler(req, res) {
       const result = db
         .prepare(`
           INSERT INTO asistencias (
-            evento_id, unidad, cargo, sexo, tema, nombre, fecha, hora, firma_base64, ip_dispositivo, user_agent, registrado_en
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            evento_id, unidad, cargo, sexo, tema, nombre, fecha, hora, firma_base64, ip_dispositivo, user_agent, registrado_en, actualizado_en
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
         .run(
           evento.id,
@@ -734,6 +815,7 @@ async function requestHandler(req, res) {
           firmaBase64,
           ip,
           userAgent,
+          registradoEn,
           registradoEn
         );
 
@@ -754,17 +836,7 @@ async function requestHandler(req, res) {
         mensaje_cuerpo:
           configs.mensaje_gracias_cuerpo ||
           'Su asistencia ha sido guardada exitosamente en la base de datos.',
-        registro: {
-          id: nuevoRegistro.id,
-          unidad: nuevoRegistro.unidad,
-          cargo: nuevoRegistro.cargo,
-          sexo: nuevoRegistro.sexo,
-          tema: nuevoRegistro.tema,
-          nombre: nuevoRegistro.nombre,
-          fecha: nuevoRegistro.fecha,
-          hora: nuevoRegistro.hora,
-          registrado_en: nuevoRegistro.registrado_en,
-        },
+        registro: nuevoRegistro,
       });
     }
 
@@ -847,7 +919,7 @@ async function requestHandler(req, res) {
     if (deleteAsistenciaMatch && method === 'DELETE') {
       const id = Number(deleteAsistenciaMatch[1]);
       const now = getNowISO();
-      db.prepare('UPDATE asistencias SET eliminado = 1, eliminado_en = ? WHERE id = ?').run(now, id);
+      db.prepare('UPDATE asistencias SET eliminado = 1, eliminado_en = ?, actualizado_en = ? WHERE id = ?').run(now, now, id);
       broadcastSSE('asistencia_eliminada', { id, papelera: true });
       broadcastSSE('papelera_actualizada', {});
       return sendJSON(res, 200, { ok: true, softDeleted: true });
@@ -891,17 +963,18 @@ async function requestHandler(req, res) {
       const body = await readJsonBody(req);
       const tipo = String(body.tipo || '').toLowerCase();
       const id = body.id;
+      const now = getNowISO();
 
       if (!id || !['evento', 'asistencia'].includes(tipo)) {
         return sendJSON(res, 400, { error: 'Parámetros inválidos para restaurar.' });
       }
 
       if (tipo === 'evento') {
-        db.prepare('UPDATE eventos SET eliminado = 0, eliminado_en = NULL WHERE id = ?').run(id);
-        db.prepare('UPDATE asistencias SET eliminado = 0, eliminado_en = NULL WHERE evento_id = ?').run(id);
+        db.prepare('UPDATE eventos SET eliminado = 0, eliminado_en = NULL, actualizado_en = ? WHERE id = ?').run(now, id);
+        db.prepare('UPDATE asistencias SET eliminado = 0, eliminado_en = NULL, actualizado_en = ? WHERE evento_id = ?').run(now, id);
         broadcastSSE('evento_restaurado', { id });
       } else if (tipo === 'asistencia') {
-        db.prepare('UPDATE asistencias SET eliminado = 0, eliminado_en = NULL WHERE id = ?').run(Number(id));
+        db.prepare('UPDATE asistencias SET eliminado = 0, eliminado_en = NULL, actualizado_en = ? WHERE id = ?').run(now, Number(id));
         broadcastSSE('asistencia_restaurada', { id });
       }
 

@@ -1672,6 +1672,7 @@
   <div class="toast" id="toastMsg"></div>
 
   <script>
+    const STORAGE_KEY = 'uam_asistencias_state_v2';
     let allEvents = [];
     let catalogosGrouped = {};
     let catalogosCampos = [];
@@ -1681,6 +1682,146 @@
     let selectedInspectorEventId = '';
     let activeQrModalEvent = null;
     let pickingLogoSide = null;
+
+    function loadLocalBackup() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          return {
+            allEventosRaw: [],
+            allAsistenciasRaw: [],
+            purgedEventIds: [],
+            purgedAsistenciaIds: [],
+            lastCreatedEventId: '',
+            activeTab: 'programar',
+          };
+        }
+        const parsed = JSON.parse(raw);
+        return {
+          allEventosRaw: Array.isArray(parsed.allEventosRaw) ? parsed.allEventosRaw : [],
+          allAsistenciasRaw: Array.isArray(parsed.allAsistenciasRaw) ? parsed.allAsistenciasRaw : [],
+          purgedEventIds: Array.isArray(parsed.purgedEventIds) ? parsed.purgedEventIds : [],
+          purgedAsistenciaIds: Array.isArray(parsed.purgedAsistenciaIds) ? parsed.purgedAsistenciaIds : [],
+          lastCreatedEventId: parsed.lastCreatedEventId || '',
+          activeTab: parsed.activeTab || 'programar',
+        };
+      } catch (_) {
+        return {
+          allEventosRaw: [],
+          allAsistenciasRaw: [],
+          purgedEventIds: [],
+          purgedAsistenciaIds: [],
+          lastCreatedEventId: '',
+          activeTab: 'programar',
+        };
+      }
+    }
+
+    function saveLocalBackup(patch) {
+      try {
+        const current = loadLocalBackup();
+        const next = { ...current, ...patch };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        return next;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function upsertLocalEvento(ev) {
+      if (!ev || !ev.id) return;
+      const b = loadLocalBackup();
+      const idx = b.allEventosRaw.findIndex((x) => x.id === ev.id);
+      if (idx >= 0) {
+        b.allEventosRaw[idx] = { ...b.allEventosRaw[idx], ...ev };
+      } else {
+        b.allEventosRaw.unshift(ev);
+      }
+      saveLocalBackup({ allEventosRaw: b.allEventosRaw });
+    }
+
+    function renderEmptyNewlyCreated() {
+      const box = document.getElementById('newlyCreatedBody');
+      if (!box) return;
+      box.innerHTML = `
+        <div style="text-align:center;padding:36px 16px;color:var(--muted);">
+          <div style="font-size:2.4rem;margin-bottom:8px;">📲</div>
+          Complete el formulario de la izquierda y presione <b>Generar Reunión, Vínculo y QR</b> para obtener el enlace directo y el código QR de la lista.
+        </div>
+      `;
+    }
+
+    function refreshNewlyCreatedPanel() {
+      const b = loadLocalBackup();
+      let targetEv = null;
+      if (b.lastCreatedEventId) {
+        targetEv = allEvents.find((e) => e.id === b.lastCreatedEventId) || null;
+      }
+      if (!targetEv && allEvents.length > 0) {
+        targetEv = allEvents[0];
+      }
+      if (targetEv) {
+        renderNewlyCreatedEvent(targetEv);
+      } else {
+        renderEmptyNewlyCreated();
+      }
+    }
+
+    function applyEventosState(eventosList) {
+      allEvents = Array.isArray(eventosList) ? eventosList : [];
+      document.getElementById('badgeEventosCount').textContent = allEvents.length;
+
+      // Poblar selector de eventos en Base de Datos
+      const evFilter = document.getElementById('dbFilterEvento');
+      if (evFilter) {
+        const prevVal = evFilter.value;
+        evFilter.innerHTML = '<option value="">-- Todas las Listas --</option>';
+        for (const ev of allEvents) {
+          evFilter.innerHTML += `<option value="${ev.id}">${escapeHtml(ev.fecha)} (${escapeHtml(ev.hora)}) — ${escapeHtml(ev.tema)}</option>`;
+        }
+        evFilter.value = prevVal;
+      }
+
+      renderCalendar();
+      renderCalendarInspector();
+      refreshNewlyCreatedPanel();
+
+      if (activeQrModalEvent) {
+        const refreshed = allEvents.find((e) => e.id === activeQrModalEvent.id);
+        if (refreshed) updateQrModalContent(refreshed);
+      }
+    }
+
+    async function syncWithServer() {
+      const b = loadLocalBackup();
+      try {
+        const res = await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventos: b.allEventosRaw,
+            asistencias: b.allAsistenciasRaw,
+            purgedEventIds: b.purgedEventIds,
+            purgedAsistenciaIds: b.purgedAsistenciaIds,
+          }),
+        });
+        if (!res.ok) throw new Error('Sync error');
+        const data = await res.json();
+        saveLocalBackup({
+          allEventosRaw: Array.isArray(data.allEventosRaw) ? data.allEventosRaw : b.allEventosRaw,
+          allAsistenciasRaw: Array.isArray(data.allAsistenciasRaw) ? data.allAsistenciasRaw : b.allAsistenciasRaw,
+        });
+        applyEventosState(data.eventos || []);
+        if (data.papelera) {
+          renderPapeleraFromData(data.papelera);
+        }
+        await loadCentralDatabase();
+        return data;
+      } catch (err) {
+        console.warn('Fallback loadEventos:', err);
+        return null;
+      }
+    }
 
     function showToast(msg) {
       const t = document.getElementById('toastMsg');
@@ -1720,6 +1861,8 @@
       if (titleEl && tabSectionTitles[tabId]) {
         titleEl.textContent = tabSectionTitles[tabId];
       }
+
+      saveLocalBackup({ activeTab: tabId });
 
       if (tabId === 'listas') {
         renderCalendar();
@@ -1932,6 +2075,11 @@
         return;
       }
 
+      // Guardar inmediatamente en respaldo local para que al recargar (F5) nunca desaparezca
+      upsertLocalEvento(data.evento);
+      saveLocalBackup({ lastCreatedEventId: data.evento.id });
+      allEvents = [data.evento, ...allEvents.filter((x) => x.id !== data.evento.id)];
+
       document.getElementById('evTema').value = '';
       document.getElementById('evLugar').value = '';
       document.getElementById('evProcesoIso').value = 'No Aplica';
@@ -1939,8 +2087,8 @@
       selectAllInvitedUnits(false);
 
       showToast('Reunión programada con éxito. Vínculo y QR generados.');
-      await loadEventos();
       renderNewlyCreatedEvent(data.evento);
+      await syncWithServer();
     });
 
     function renderNewlyCreatedEvent(ev) {
@@ -1989,29 +2137,7 @@
 
     // ── Pestaña 2: Listas Generadas en Estilo Calendario ──
     async function loadEventos() {
-      const res = await fetch('/api/eventos');
-      const data = await res.json();
-      allEvents = data.eventos || [];
-
-      document.getElementById('badgeEventosCount').textContent = allEvents.length;
-
-      // Poblar selector de eventos en Base de Datos
-      const evFilter = document.getElementById('dbFilterEvento');
-      const prevVal = evFilter.value;
-      evFilter.innerHTML = '<option value="">-- Todas las Listas --</option>';
-      for (const ev of allEvents) {
-        evFilter.innerHTML += `<option value="${ev.id}">${escapeHtml(ev.fecha)} (${escapeHtml(ev.hora)}) — ${escapeHtml(ev.tema)}</option>`;
-      }
-      evFilter.value = prevVal;
-
-      renderCalendar();
-      renderCalendarInspector();
-
-      if (activeQrModalEvent) {
-        const refreshed = allEvents.find((e) => e.id === activeQrModalEvent.id);
-        if (refreshed) updateQrModalContent(refreshed);
-      }
-      loadPapeleraBadge();
+      await syncWithServer();
     }
 
     function renderCalendar() {
@@ -2210,24 +2336,50 @@
       const now = new Date();
       const fecha = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const hora = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const nowIso = now.toISOString();
+      const b = loadLocalBackup();
+      b.allEventosRaw = b.allEventosRaw.map((ev) =>
+        ev.id === eventoId
+          ? { ...ev, fecha, hora, estado_manual: 'AUTO', actualizado_en: nowIso }
+          : ev
+      );
+      saveLocalBackup({ allEventosRaw: b.allEventosRaw });
+
       const res = await fetch(`/api/eventos/${eventoId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fecha, hora, estado_manual: 'AUTO' }),
       });
       if (res.ok) {
+        const data = await res.json();
+        if (data.evento) upsertLocalEvento(data.evento);
         showToast('Reunión actualizada a la hora actual (+30 min activos).');
-        loadEventos();
+        await syncWithServer();
       }
     }
 
     async function deleteEvento(eventoId) {
       if (!confirm('¿Mover esta reunión y su lista a la papelera? Podrá restaurarla o eliminarla definitivamente cuando lo desee.')) return;
+      const nowIso = new Date().toISOString();
+      const b = loadLocalBackup();
+      b.allEventosRaw = b.allEventosRaw.map((ev) =>
+        ev.id === eventoId
+          ? { ...ev, eliminado: 1, eliminado_en: nowIso, actualizado_en: nowIso }
+          : ev
+      );
+      b.allAsistenciasRaw = b.allAsistenciasRaw.map((a) =>
+        a.evento_id === eventoId
+          ? { ...a, eliminado: 1, eliminado_en: nowIso, actualizado_en: nowIso }
+          : a
+      );
+      saveLocalBackup({
+        allEventosRaw: b.allEventosRaw,
+        allAsistenciasRaw: b.allAsistenciasRaw,
+      });
+
       await fetch(`/api/eventos/${eventoId}`, { method: 'DELETE' });
       showToast('Reunión enviada a la papelera.');
-      loadEventos();
-      loadCentralDatabase();
-      loadPapeleraBadge();
+      await syncWithServer();
     }
 
     // ── Pestaña 3: Base de Datos General ──
@@ -2342,51 +2494,44 @@
 
     async function deleteAsistenciaRecord(id) {
       if (!confirm('¿Mover este registro de asistencia a la papelera? Podrá restaurarlo o eliminarlo definitivamente cuando lo desee.')) return;
+      const nowIso = new Date().toISOString();
+      const b = loadLocalBackup();
+      b.allAsistenciasRaw = b.allAsistenciasRaw.map((a) =>
+        Number(a.id) === Number(id)
+          ? { ...a, eliminado: 1, eliminado_en: nowIso, actualizado_en: nowIso }
+          : a
+      );
+      saveLocalBackup({ allAsistenciasRaw: b.allAsistenciasRaw });
+
       await fetch(`/api/asistencias/${id}`, { method: 'DELETE' });
       showToast('Registro de asistencia enviado a la papelera.');
-      loadCentralDatabase();
-      loadEventos();
-      loadPapeleraBadge();
+      await syncWithServer();
     }
 
     // ── Pestaña 5: Papelera de Reciclaje (Restauración y Purga Definitiva) ──
-    async function loadPapeleraBadge() {
-      try {
-        const res = await fetch('/api/papelera');
-        const data = await res.json();
-        const total = data.total || 0;
-        const b = document.getElementById('badgePapeleraCount');
-        if (b) b.textContent = total;
-      } catch (e) {
-        console.warn('Error cargando conteo de papelera:', e);
-      }
-    }
+    function renderPapeleraFromData(data) {
+      const eventos = (data && data.eventos) || [];
+      const asistencias = (data && data.asistencias) || [];
+      const total = data && data.total !== undefined ? data.total : eventos.length + asistencias.length;
 
-    async function loadPapelera() {
-      try {
-        const res = await fetch('/api/papelera');
-        const data = await res.json();
-        const eventos = data.eventos || [];
-        const asistencias = data.asistencias || [];
-        const total = data.total !== undefined ? data.total : eventos.length + asistencias.length;
+      const badgeNav = document.getElementById('badgePapeleraCount');
+      if (badgeNav) badgeNav.textContent = total;
 
-        const badgeNav = document.getElementById('badgePapeleraCount');
-        if (badgeNav) badgeNav.textContent = total;
+      const countEv = document.getElementById('papeleraEventosCount');
+      if (countEv) countEv.textContent = eventos.length;
 
-        const countEv = document.getElementById('papeleraEventosCount');
-        if (countEv) countEv.textContent = eventos.length;
+      const countAsis = document.getElementById('papeleraAsistenciasCount');
+      if (countAsis) countAsis.textContent = asistencias.length;
 
-        const countAsis = document.getElementById('papeleraAsistenciasCount');
-        if (countAsis) countAsis.textContent = asistencias.length;
+      const badgeEvH = document.getElementById('badgePapeleraEvHeader');
+      if (badgeEvH) badgeEvH.textContent = `${eventos.length} ${eventos.length === 1 ? 'Reunión' : 'Reuniones'}`;
 
-        const badgeEvH = document.getElementById('badgePapeleraEvHeader');
-        if (badgeEvH) badgeEvH.textContent = `${eventos.length} ${eventos.length === 1 ? 'Reunión' : 'Reuniones'}`;
+      const badgeAsisH = document.getElementById('badgePapeleraAsisHeader');
+      if (badgeAsisH) badgeAsisH.textContent = `${asistencias.length} ${asistencias.length === 1 ? 'Asistencia' : 'Asistencias'}`;
 
-        const badgeAsisH = document.getElementById('badgePapeleraAsisHeader');
-        if (badgeAsisH) badgeAsisH.textContent = `${asistencias.length} ${asistencias.length === 1 ? 'Asistencia' : 'Asistencias'}`;
-
-        // Render Tabla 1: Reuniones en Papelera
-        const tbodyEv = document.getElementById('papeleraEventosTableBody');
+      // Render Tabla 1: Reuniones en Papelera
+      const tbodyEv = document.getElementById('papeleraEventosTableBody');
+      if (tbodyEv) {
         if (eventos.length === 0) {
           tbodyEv.innerHTML = `
             <tr>
@@ -2448,9 +2593,11 @@
             })
             .join('');
         }
+      }
 
-        // Render Tabla 2: Registros de Asistencia Individuales en Papelera
-        const tbodyAsis = document.getElementById('papeleraAsistenciasTableBody');
+      // Render Tabla 2: Registros de Asistencia Individuales en Papelera
+      const tbodyAsis = document.getElementById('papeleraAsistenciasTableBody');
+      if (tbodyAsis) {
         if (asistencias.length === 0) {
           tbodyAsis.innerHTML = `
             <tr>
@@ -2506,12 +2653,49 @@
             })
             .join('');
         }
-      } catch (err) {
-        console.error('Error cargando papelera:', err);
       }
     }
 
+    async function loadPapeleraBadge() {
+      try {
+        const res = await fetch('/api/papelera');
+        const data = await res.json();
+        renderPapeleraFromData(data);
+      } catch (e) {
+        console.warn('Error cargando conteo de papelera:', e);
+      }
+    }
+
+    async function loadPapelera() {
+      await syncWithServer();
+    }
+
     async function restaurarElemento(tipo, id) {
+      const nowIso = new Date().toISOString();
+      const b = loadLocalBackup();
+      if (tipo === 'evento') {
+        b.allEventosRaw = b.allEventosRaw.map((ev) =>
+          ev.id === id
+            ? { ...ev, eliminado: 0, eliminado_en: null, actualizado_en: nowIso }
+            : ev
+        );
+        b.allAsistenciasRaw = b.allAsistenciasRaw.map((a) =>
+          a.evento_id === id
+            ? { ...a, eliminado: 0, eliminado_en: null, actualizado_en: nowIso }
+            : a
+        );
+      } else if (tipo === 'asistencia') {
+        b.allAsistenciasRaw = b.allAsistenciasRaw.map((a) =>
+          Number(a.id) === Number(id)
+            ? { ...a, eliminado: 0, eliminado_en: null, actualizado_en: nowIso }
+            : a
+        );
+      }
+      saveLocalBackup({
+        allEventosRaw: b.allEventosRaw,
+        allAsistenciasRaw: b.allAsistenciasRaw,
+      });
+
       const res = await fetch('/api/papelera/restaurar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2519,9 +2703,7 @@
       });
       if (res.ok) {
         showToast(tipo === 'evento' ? 'Reunión restaurada con éxito.' : 'Asistencia restaurada con éxito.');
-        loadPapelera();
-        loadEventos();
-        loadCentralDatabase();
+        await syncWithServer();
       } else {
         const data = await res.json();
         alert(data.error || 'No se pudo restaurar el elemento.');
@@ -2533,6 +2715,22 @@
       if (!confirm(`¿Eliminar definitivamente ${label}? Esta acción no se puede deshacer.`)) {
         return;
       }
+      const b = loadLocalBackup();
+      if (tipo === 'evento') {
+        b.allEventosRaw = b.allEventosRaw.filter((ev) => ev.id !== id);
+        b.allAsistenciasRaw = b.allAsistenciasRaw.filter((a) => a.evento_id !== id);
+        if (!b.purgedEventIds.includes(id)) b.purgedEventIds.push(id);
+      } else if (tipo === 'asistencia') {
+        b.allAsistenciasRaw = b.allAsistenciasRaw.filter((a) => Number(a.id) !== Number(id));
+        if (!b.purgedAsistenciaIds.includes(Number(id))) b.purgedAsistenciaIds.push(Number(id));
+      }
+      saveLocalBackup({
+        allEventosRaw: b.allEventosRaw,
+        allAsistenciasRaw: b.allAsistenciasRaw,
+        purgedEventIds: b.purgedEventIds,
+        purgedAsistenciaIds: b.purgedAsistenciaIds,
+      });
+
       const res = await fetch('/api/papelera/purgar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2540,7 +2738,7 @@
       });
       if (res.ok) {
         showToast('Elemento eliminado definitivamente.');
-        loadPapelera();
+        await syncWithServer();
       } else {
         const data = await res.json();
         alert(data.error || 'No se pudo purgar el elemento.');
@@ -2551,6 +2749,24 @@
       if (!confirm('⚠️ ¿ATENCIÓN: Desea vaciar COMPLETAMENTE la papelera?\\n\\nSe eliminarán de forma definitiva todas las reuniones y registros de asistencia que se encuentren en la papelera sin posibilidad de recuperación.')) {
         return;
       }
+      const b = loadLocalBackup();
+      const deletedEvIds = b.allEventosRaw.filter((ev) => Number(ev.eliminado) === 1).map((ev) => ev.id);
+      const deletedAsisIds = b.allAsistenciasRaw
+        .filter((a) => Number(a.eliminado) === 1 || deletedEvIds.includes(a.evento_id))
+        .map((a) => Number(a.id));
+      b.allEventosRaw = b.allEventosRaw.filter((ev) => Number(ev.eliminado) !== 1);
+      b.allAsistenciasRaw = b.allAsistenciasRaw.filter(
+        (a) => Number(a.eliminado) !== 1 && !deletedEvIds.includes(a.evento_id)
+      );
+      b.purgedEventIds = Array.from(new Set([...b.purgedEventIds, ...deletedEvIds]));
+      b.purgedAsistenciaIds = Array.from(new Set([...b.purgedAsistenciaIds, ...deletedAsisIds]));
+      saveLocalBackup({
+        allEventosRaw: b.allEventosRaw,
+        allAsistenciasRaw: b.allAsistenciasRaw,
+        purgedEventIds: b.purgedEventIds,
+        purgedAsistenciaIds: b.purgedAsistenciaIds,
+      });
+
       const res = await fetch('/api/papelera/purgar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2558,9 +2774,7 @@
       });
       if (res.ok) {
         showToast('Papelera vaciada por completo.');
-        loadPapelera();
-        loadEventos();
-        loadCentralDatabase();
+        await syncWithServer();
       } else {
         const data = await res.json();
         alert(data.error || 'No se pudo vaciar la papelera.');
@@ -3141,44 +3355,46 @@
     }
 
     function setupRealtimeSSE() {
+      const host = window.location.hostname || '';
+      const isLocal =
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host.startsWith('192.168.') ||
+        host.startsWith('10.');
+      if (!isLocal) return;
+
       const es = new EventSource('/api/stream');
       es.addEventListener('nueva_asistencia', (e) => {
         const data = JSON.parse(e.data);
         showToast(`✍️ Nueva asistencia: ${data.asistencia.nombre} (${data.asistencia.unidad})`);
-        loadEventos();
-        loadCentralDatabase();
+        syncWithServer();
       });
-      es.addEventListener('evento_actualizado', () => loadEventos());
+      es.addEventListener('evento_actualizado', () => syncWithServer());
       es.addEventListener('catalogo_actualizado', () => loadCatalogos());
-      es.addEventListener('papelera_actualizada', () => {
-        loadPapelera();
-        loadPapeleraBadge();
-      });
-      es.addEventListener('evento_restaurado', () => {
-        loadEventos();
-        loadCentralDatabase();
-        loadPapelera();
-      });
-      es.addEventListener('asistencia_restaurada', () => {
-        loadEventos();
-        loadCentralDatabase();
-        loadPapelera();
-      });
-      es.addEventListener('papelera_vaciada', () => {
-        loadPapelera();
-        loadPapeleraBadge();
-      });
+      es.addEventListener('papelera_actualizada', () => syncWithServer());
+      es.addEventListener('evento_restaurado', () => syncWithServer());
+      es.addEventListener('asistencia_restaurada', () => syncWithServer());
+      es.addEventListener('papelera_vaciada', () => syncWithServer());
     }
 
-    setInterval(() => loadEventos(), 20000);
+    setInterval(() => syncWithServer(), 15000);
 
-    setInitialFormDateTime();
-    loadSystemInfoAndConfig();
-    loadCatalogos();
-    loadEventos();
-    loadCentralDatabase();
-    loadPapelera();
-    setupRealtimeSSE();
+    async function initDashboard() {
+      setInitialFormDateTime();
+      const b = loadLocalBackup();
+      if (b.activeTab && tabSectionTitles[b.activeTab]) {
+        switchTab(b.activeTab);
+      }
+      const cachedActive = (b.allEventosRaw || []).filter((ev) => Number(ev.eliminado) !== 1);
+      if (cachedActive.length > 0) {
+        applyEventosState(cachedActive);
+      }
+      await syncWithServer();
+      await Promise.all([loadCatalogos(), loadSystemInfoAndConfig()]);
+      setupRealtimeSSE();
+    }
+
+    initDashboard();
   </script>
 </body>
 </html>
