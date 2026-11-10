@@ -812,6 +812,25 @@
         Esta lista de asistencia se desactivó automáticamente 30 minutos después de la fecha y hora programada en el calendario.
       </p>
       <div class="receipt-card" id="expiredEventSummary"></div>
+
+      <div id="expiredReactivateActions" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px;">
+        <button
+          type="button"
+          class="btn-save"
+          style="width:auto;min-height:46px;padding:12px 22px;font-size:0.92rem;background:#0d9488;"
+          onclick="reactivarEsteFormulario('ACTIVAR_PERMANENTE')"
+        >
+          ✅ Activar / Reactivar Formulario Ahora
+        </button>
+        <button
+          type="button"
+          class="btn-secondary"
+          style="min-height:46px;padding:12px 20px;font-size:0.9rem;"
+          onclick="reactivarEsteFormulario('REACTIVAR_30M')"
+        >
+          ⏱️ Reactivar por +30 Minutos
+        </button>
+      </div>
     </section>
 
     <footer class="footer-bar">
@@ -976,23 +995,71 @@
 
       const badge = document.getElementById('statusBadge');
       badge.classList.add('expired');
-      document.getElementById('statusLabel').textContent = 'LISTA DESACTIVADA (+30 MIN)';
+      document.getElementById('statusLabel').textContent =
+        evento.etiqueta_estado ? evento.etiqueta_estado.toUpperCase() : 'LISTA DESACTIVADA';
       document.getElementById('countdownText').textContent = 'CERRADA';
 
       document.getElementById('expiredMessageText').textContent =
         evento.mensaje_estado ||
         'Esta lista de asistencia se ha desactivado automáticamente al cumplirse los 30 minutos posteriores a la fecha y hora programada.';
 
+      const actionsEl = document.getElementById('expiredReactivateActions');
+      if (actionsEl) {
+        actionsEl.style.display = evento && (evento.id || evento.token) ? 'flex' : 'none';
+      }
+
       document.getElementById('expiredEventSummary').innerHTML = `
         <div class="receipt-row"><span>Tema:</span><strong>${escapeHtml(evento.tema)}</strong></div>
         <div class="receipt-row"><span>Fecha Programada:</span><strong>${escapeHtml(formatFechaDisplay(evento.fecha))}</strong></div>
         <div class="receipt-row"><span>Hora Programada:</span><strong>${escapeHtml(evento.hora)}</strong></div>
-        <div class="receipt-row"><span>Desactivación (+30 min):</span><strong>${escapeHtml(evento.hora_cierre || '')}</strong></div>
+        <div class="receipt-row"><span>Estado / Cierre:</span><strong>${escapeHtml(evento.hora_cierre || '')}</strong></div>
       `;
+    }
+
+    async function reactivarEsteFormulario(accion) {
+      try {
+        const targetKey = (currentEvent && (currentEvent.id || currentEvent.token)) || eventToken;
+        if (!targetKey) return;
+        const res = await fetch(`/api/eventos/${encodeURIComponent(targetKey)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accion, minutos: 30 }),
+        });
+        if (!res.ok) {
+          alert('No se pudo reactivar el formulario. Intente nuevamente.');
+          return;
+        }
+        const data = await res.json();
+        if (data.evento) {
+          try {
+            const rawState = localStorage.getItem(STORAGE_KEY);
+            if (rawState) {
+              const parsed = JSON.parse(rawState);
+              if (parsed && Array.isArray(parsed.allEventosRaw)) {
+                parsed.allEventosRaw = parsed.allEventosRaw.map((ev) =>
+                  ev.id === data.evento.id || ev.token === data.evento.token
+                    ? { ...ev, ...data.evento }
+                    : ev
+                );
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+              }
+            }
+          } catch (_) {}
+        }
+        await loadEventForm();
+      } catch (_) {
+        alert('Error de red al reactivar el formulario.');
+      }
     }
 
     function startCountdown(expirationIso) {
       if (countdownInterval) clearInterval(countdownInterval);
+
+      if (currentEvent && (currentEvent.sin_limite_tiempo || currentEvent.estado_manual === 'FORZAR_ABIERTA')) {
+        document.getElementById('countdownText').textContent = 'SIN LÍMITE (ACTIVA)';
+        return;
+      }
+
       const expTime = new Date(expirationIso).getTime();
 
       function tick() {
@@ -1148,6 +1215,9 @@
           return;
         }
 
+        document.getElementById('expiredSection').style.display = 'none';
+        document.getElementById('thankYouSection').style.display = 'none';
+        document.getElementById('activeFormSection').style.display = 'block';
         document.getElementById('statusBadge').classList.remove('expired');
         document.getElementById('statusLabel').textContent = currentEvent.etiqueta_estado || 'LISTA ACTIVA';
         startCountdown(currentEvent.expiracion_iso);

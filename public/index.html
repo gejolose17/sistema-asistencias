@@ -1075,6 +1075,18 @@
                   <select id="evPlanificacion" class="sel" required></select>
                 </div>
 
+                <div class="span-3">
+                  <label class="lbl" for="evVigenciaModo">
+                    Tiempo de Actividad del Formulario de Asistencia
+                  </label>
+                  <select id="evVigenciaModo" class="sel">
+                    <option value="30">⏱️ Automático: 30 minutos activos (Por defecto)</option>
+                    <option value="60">⏱️ Automático: 60 minutos activos (1 hora)</option>
+                    <option value="120">⏱️ Automático: 120 minutos activos (2 horas)</option>
+                    <option value="0">🔓 Siempre Activo (No desactivar automáticamente)</option>
+                  </select>
+                </div>
+
                 <!-- UNIDADES INVITADAS: 1 A MÁS (VINCULADO AL CAMPO DE UNIDADES) -->
                 <div class="span-3">
                   <label class="lbl">
@@ -1169,14 +1181,26 @@
         <div class="panel-card">
           <div class="panel-header">
             <h2 id="inspectorHeaderTitle">📋 Detalle de Listas</h2>
-            <button
-              type="button"
-              class="btn-outline"
-              style="padding:4px 9px;font-size:0.73rem;"
-              onclick="clearCalendarSelection()"
-            >
-              Ver Todas
-            </button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button
+                type="button"
+                id="btnReactivarTodasInspector"
+                class="btn-primary"
+                style="padding:4px 10px;font-size:0.73rem;display:none;"
+                onclick="reactivarTodasLasListas()"
+                title="Activar todos los formularios desactivados"
+              >
+                ✅ Reactivar Todas
+              </button>
+              <button
+                type="button"
+                class="btn-outline"
+                style="padding:4px 9px;font-size:0.73rem;"
+                onclick="clearCalendarSelection()"
+              >
+                Ver Todas
+              </button>
+            </div>
           </div>
           <div class="panel-body" id="calendarInspectorBody" style="max-height:740px;overflow-y:auto;"></div>
         </div>
@@ -1566,6 +1590,8 @@
           <span class="state-pill active" id="qrModalLiveCount">0 Asistencias</span>
           <span class="state-pill active" id="qrModalStatusPill">Activa</span>
         </div>
+
+        <div id="qrModalStatusControls" style="margin:6px 0 12px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;"></div>
 
         <div class="link-box" style="justify-content:center;">
           <span class="link-url" id="qrModalLinkText"></span>
@@ -2051,6 +2077,9 @@
         return;
       }
 
+      const vigenciaVal = Number(document.getElementById('evVigenciaModo').value);
+      const duracionVentanaMin = isNaN(vigenciaVal) ? 30 : vigenciaVal;
+
       const payload = {
         fecha: document.getElementById('evFecha').value,
         hora: document.getElementById('evHora').value,
@@ -2061,7 +2090,8 @@
         tipo: document.getElementById('evTipo').value,
         proceso_iso: document.getElementById('evProcesoIso').value,
         planificacion: document.getElementById('evPlanificacion').value,
-        duracion_ventana_min: 30,
+        duracion_ventana_min: duracionVentanaMin,
+        estado_manual: duracionVentanaMin <= 0 ? 'FORZAR_ABIERTA' : 'AUTO',
       };
 
       const res = await fetch('/api/eventos', {
@@ -2093,18 +2123,47 @@
 
     function renderNewlyCreatedEvent(ev) {
       const box = document.getElementById('newlyCreatedBody');
+      const cierreLabel = ev.sin_limite_tiempo
+        ? 'Sin límite de tiempo (Siempre Activa)'
+        : `Se desactiva a las ${escapeHtml(ev.hora_cierre)}`;
       box.innerHTML = `
         <div style="text-align:center;">
-          <span class="state-pill active" style="margin-bottom:8px;">✓ Reunión Calendarizada</span>
+          <span class="state-pill ${ev.activa ? 'active' : 'expired'}" style="margin-bottom:8px;">
+            ${ev.activa ? '✓ ' + escapeHtml(ev.etiqueta_estado || 'Lista Activa') : '🔒 ' + escapeHtml(ev.etiqueta_estado || 'Desactivada')}
+          </span>
           <h3 style="font-size:1.15rem;color:var(--dark-gray);margin-bottom:4px;">${escapeHtml(ev.tema)}</h3>
           <p style="font-size:0.84rem;color:var(--muted);font-weight:700;margin-bottom:10px;">
-            📅 ${escapeHtml(ev.fecha)} | ⏰ ${escapeHtml(ev.hora)} (Se desactiva a las ${escapeHtml(ev.hora_cierre)})
+            📅 ${escapeHtml(ev.fecha)} | ⏰ ${escapeHtml(ev.hora)} (${cierreLabel})
           </p>
           <div class="qr-frame" style="padding:10px;">
             <img src="${ev.qr_svg_url}" alt="QR" style="width:210px;height:210px;display:block;" />
           </div>
           <div class="link-box">
             <a href="${escapeHtml(ev.vinculo)}" target="_blank" class="link-url">${escapeHtml(ev.vinculo)}</a>
+          </div>
+          <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:10px;padding:8px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+            ${
+              !ev.activa
+                ? `
+                  <button type="button" class="btn-primary" style="padding:7px 12px;font-size:0.78rem;background:#0d9488;" onclick="cambiarEstadoFormulario('${ev.id}', 'ACTIVAR_PERMANENTE')">
+                    ✅ Activar Formulario (Sin límite)
+                  </button>
+                  <button type="button" class="btn-outline" style="padding:7px 12px;font-size:0.78rem;" onclick="cambiarEstadoFormulario('${ev.id}', 'REACTIVAR_30M')">
+                    ⏱️ Reactivar +30 min
+                  </button>
+                `
+                : `
+                  ${
+                    !ev.sin_limite_tiempo
+                      ? `<button type="button" class="btn-outline" style="padding:6px 10px;font-size:0.75rem;" onclick="cambiarEstadoFormulario('${ev.id}', 'ACTIVAR_PERMANENTE')">🔓 Dejar Siempre Activo</button>
+                         <button type="button" class="btn-outline" style="padding:6px 10px;font-size:0.75rem;" onclick="cambiarEstadoFormulario('${ev.id}', 'REACTIVAR_30M')">⏱️ +30 min</button>`
+                      : ''
+                  }
+                  <button type="button" class="btn-outline" style="padding:6px 10px;font-size:0.75rem;color:#dc2626;border-color:#fca5a5;" onclick="cambiarEstadoFormulario('${ev.id}', 'DESACTIVAR')">
+                    🔒 Desactivar Formulario
+                  </button>
+                `
+            }
           </div>
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;">
             <button type="button" class="btn-primary" onclick="copyText('${escapeHtml(ev.vinculo)}')">
@@ -2254,6 +2313,12 @@
         headerTitle.textContent = `📋 Todas las Listas (${allEvents.length})`;
       }
 
+      const btnReactivarTodas = document.getElementById('btnReactivarTodasInspector');
+      if (btnReactivarTodas) {
+        const hayInactivas = list.some((e) => !e.activa);
+        btnReactivarTodas.style.display = hayInactivas ? 'inline-flex' : 'none';
+      }
+
       if (list.length === 0) {
         container.innerHTML = `
           <div style="text-align:center;padding:30px 14px;color:var(--muted);">
@@ -2275,6 +2340,7 @@
       container.innerHTML = list
         .map((ev) => {
           const invitadas = (ev.unidades_invitadas_lista || []).join(', ') || 'General';
+          const cierreTexto = ev.sin_limite_tiempo ? 'Sin límite' : escapeHtml(ev.hora_cierre);
           return `
           <div class="day-inspector-card ${ev.activa ? '' : 'expired'}">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
@@ -2285,13 +2351,90 @@
             </div>
 
             <div style="font-size:0.8rem;color:var(--slate);line-height:1.55;margin-bottom:10px;">
-              <div>📅 <b>Fecha:</b> ${escapeHtml(ev.fecha)} &nbsp;|&nbsp; ⏰ <b>Hora:</b> ${escapeHtml(ev.hora)} (Cierra: ${escapeHtml(ev.hora_cierre)})</div>
+              <div>📅 <b>Fecha:</b> ${escapeHtml(ev.fecha)} &nbsp;|&nbsp; ⏰ <b>Hora:</b> ${escapeHtml(ev.hora)} (Cierre: ${cierreTexto})</div>
               <div>🏢 <b>Organiza:</b> ${escapeHtml(ev.direccion_organiza || '-')}</div>
               <div>📍 <b>Lugar:</b> ${escapeHtml(ev.lugar || '-')} &nbsp;|&nbsp; 💻 <b>Tipo:</b> ${escapeHtml(ev.tipo || 'Presencial')}</div>
               <div>📋 <b>Proceso ISO:</b> ${escapeHtml(ev.proceso_iso || '-')}</div>
               <div>🗓️ <b>Planificación:</b> ${escapeHtml(ev.planificacion || '-')}</div>
               <div>👥 <b>Unidades Invitadas:</b> ${escapeHtml(invitadas)}</div>
               <div>✍️ <b>Asistencias registradas:</b> <strong style="color:var(--primary);">${ev.total_asistencias}</strong></div>
+            </div>
+
+            <!-- BARRA DE ACTIVACIÓN / REACTIVACIÓN / DESACTIVACIÓN DEL FORMULARIO -->
+            <div style="background:${ev.activa ? '#f0fdfa' : '#fef2f2'};border:1.5px solid ${ev.activa ? '#99f6e4' : '#fecaca'};border-radius:8px;padding:9px 11px;margin-bottom:10px;">
+              <div style="font-size:0.74rem;font-weight:800;text-transform:uppercase;color:${ev.activa ? '#0f766e' : '#991b1b'};margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+                <span>${ev.activa ? '🟢 Formulario Habilitado para Firmas' : '🔴 Formulario Desactivado — Reactivar:'}</span>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${
+                  !ev.activa
+                    ? `
+                      <button
+                        type="button"
+                        class="btn-primary"
+                        style="padding:7px 12px;font-size:0.78rem;background:#0d9488;flex:1;"
+                        onclick="cambiarEstadoFormulario('${ev.id}', 'ACTIVAR_PERMANENTE')"
+                        title="Activar el formulario permanentemente sin límite de tiempo"
+                      >
+                        ✅ Activar / Reactivar Formulario
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-outline"
+                        style="padding:7px 11px;font-size:0.78rem;background:#fff;"
+                        onclick="cambiarEstadoFormulario('${ev.id}', 'REACTIVAR_30M')"
+                        title="Reactivar el formulario durante 30 minutos a partir de ahora"
+                      >
+                        ⏱️ Reactivar +30 min
+                      </button>
+                    `
+                    : `
+                      ${
+                        !ev.sin_limite_tiempo
+                          ? `
+                            <button
+                              type="button"
+                              class="btn-outline"
+                              style="padding:6px 10px;font-size:0.75rem;background:#fff;"
+                              onclick="cambiarEstadoFormulario('${ev.id}', 'ACTIVAR_PERMANENTE')"
+                              title="Evitar que se desactive a los 30 minutos y dejarlo siempre activo"
+                            >
+                              🔓 Dejar Siempre Activo
+                            </button>
+                            <button
+                              type="button"
+                              class="btn-outline"
+                              style="padding:6px 10px;font-size:0.75rem;background:#fff;"
+                              onclick="cambiarEstadoFormulario('${ev.id}', 'REACTIVAR_30M')"
+                              title="Extender 30 minutos desde ahora"
+                            >
+                              ⏱️ +30 min
+                            </button>
+                          `
+                          : `
+                            <button
+                              type="button"
+                              class="btn-outline"
+                              style="padding:6px 10px;font-size:0.75rem;background:#fff;"
+                              onclick="cambiarEstadoFormulario('${ev.id}', 'REACTIVAR_30M')"
+                              title="Cambiar a modo temporizador de 30 minutos"
+                            >
+                              ⏱️ Poner límite 30 min
+                            </button>
+                          `
+                      }
+                      <button
+                        type="button"
+                        class="btn-outline"
+                        style="padding:6px 10px;font-size:0.75rem;color:#dc2626;border-color:#fca5a5;background:#fff;"
+                        onclick="cambiarEstadoFormulario('${ev.id}', 'DESACTIVAR')"
+                        title="Desactivar y cerrar el formulario manualmente"
+                      >
+                        🔒 Desactivar Formulario
+                      </button>
+                    `
+                }
+              </div>
             </div>
 
             <div class="link-box">
@@ -2314,9 +2457,6 @@
               <a href="/reporte-pdf?evento_id=${encodeURIComponent(ev.id)}" target="_blank" class="btn-primary" style="padding:7px 11px;font-size:0.78rem;" title="Reporte horizontal oficial con conteo y firmas">
                 📄 Lista Horizontal PDF
               </a>
-              <button type="button" class="btn-outline" style="padding:7px 11px;font-size:0.78rem;" onclick="rescheduleNowPlus30('${ev.id}')" title="Reactivar por 30 minutos desde ahora">
-                🔄 +30m
-              </button>
               <button type="button" class="btn-outline" style="padding:7px 11px;font-size:0.78rem;color:#dc2626;" onclick="deleteEvento('${ev.id}')">
                 🗑️
               </button>
@@ -2332,30 +2472,59 @@
       switchTab('programar', document.querySelector('[data-tab=programar]'));
     }
 
-    async function rescheduleNowPlus30(eventoId) {
-      const now = new Date();
-      const fecha = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      const hora = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      const nowIso = now.toISOString();
-      const b = loadLocalBackup();
-      b.allEventosRaw = b.allEventosRaw.map((ev) =>
-        ev.id === eventoId
-          ? { ...ev, fecha, hora, estado_manual: 'AUTO', actualizado_en: nowIso }
-          : ev
-      );
-      saveLocalBackup({ allEventosRaw: b.allEventosRaw });
-
-      const res = await fetch(`/api/eventos/${eventoId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fecha, hora, estado_manual: 'AUTO' }),
-      });
-      if (res.ok) {
+    async function cambiarEstadoFormulario(eventoId, accion, minutos = 30) {
+      try {
+        const res = await fetch(`/api/eventos/${encodeURIComponent(eventoId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accion, minutos }),
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          alert(errData.error || 'No se pudo actualizar el estado del formulario.');
+          return;
+        }
         const data = await res.json();
-        if (data.evento) upsertLocalEvento(data.evento);
-        showToast('Reunión actualizada a la hora actual (+30 min activos).');
+        if (data.evento) {
+          upsertLocalEvento(data.evento);
+        }
+        if (accion === 'ACTIVAR_PERMANENTE') {
+          showToast('✅ Formulario activado permanentemente (sin límite de tiempo).');
+        } else if (accion === 'REACTIVAR_30M' || accion === 'REACTIVAR_TIEMPO') {
+          showToast(`⏱️ Formulario reactivado por ${minutos} minutos a partir de ahora.`);
+        } else if (accion === 'DESACTIVAR') {
+          showToast('🔒 Formulario desactivado manualmente.');
+        }
         await syncWithServer();
+      } catch (e) {
+        console.error(e);
+        alert('Error de conexión al cambiar el estado del formulario.');
       }
+    }
+
+    async function reactivarTodasLasListas() {
+      const inactivas = allEvents.filter((e) => !e.activa);
+      if (inactivas.length === 0) {
+        showToast('Todos los formularios ya están activos.');
+        return;
+      }
+      for (const ev of inactivas) {
+        const res = await fetch(`/api/eventos/${encodeURIComponent(ev.id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accion: 'ACTIVAR_PERMANENTE' }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.evento) upsertLocalEvento(data.evento);
+        }
+      }
+      showToast(`✅ Se reactivaron ${inactivas.length} formulario(s) exitosamente.`);
+      await syncWithServer();
+    }
+
+    async function rescheduleNowPlus30(eventoId) {
+      return cambiarEstadoFormulario(eventoId, 'REACTIVAR_30M', 30);
     }
 
     async function deleteEvento(eventoId) {
@@ -2676,7 +2845,7 @@
       if (tipo === 'evento') {
         b.allEventosRaw = b.allEventosRaw.map((ev) =>
           ev.id === id
-            ? { ...ev, eliminado: 0, eliminado_en: null, actualizado_en: nowIso }
+            ? { ...ev, eliminado: 0, eliminado_en: null, estado_manual: 'FORZAR_ABIERTA', actualizado_en: nowIso }
             : ev
         );
         b.allAsistenciasRaw = b.allAsistenciasRaw.map((a) =>
@@ -3251,8 +3420,9 @@
 
     function updateQrModalContent(ev) {
       document.getElementById('qrModalTema').textContent = ev.tema;
+      const cierreLabel = ev.sin_limite_tiempo ? 'Sin límite' : ev.hora_cierre;
       document.getElementById('qrModalFechaHora').textContent =
-        `Fecha: ${ev.fecha} | Hora: ${ev.hora} | Cierre (+30 min): ${ev.hora_cierre}`;
+        `Fecha: ${ev.fecha} | Hora: ${ev.hora} | Cierre: ${cierreLabel}`;
       document.getElementById('qrModalImg').src = ev.qr_svg_url;
       document.getElementById('qrModalLinkText').textContent = ev.vinculo;
       document.getElementById('qrModalOpenLink').href = `/asistencia/${encodeURIComponent(ev.token)}`;
@@ -3262,6 +3432,32 @@
       const pill = document.getElementById('qrModalStatusPill');
       pill.textContent = ev.etiqueta_estado;
       pill.className = `state-pill ${ev.activa ? 'active' : 'expired'}`;
+
+      const ctrlBox = document.getElementById('qrModalStatusControls');
+      if (ctrlBox) {
+        if (!ev.activa) {
+          ctrlBox.innerHTML = `
+            <button type="button" class="btn-primary" style="padding:7px 14px;font-size:0.8rem;background:#0d9488;" onclick="cambiarEstadoFormulario('${ev.id}', 'ACTIVAR_PERMANENTE')">
+              ✅ Activar / Reactivar Formulario
+            </button>
+            <button type="button" class="btn-outline" style="padding:7px 12px;font-size:0.8rem;" onclick="cambiarEstadoFormulario('${ev.id}', 'REACTIVAR_30M')">
+              ⏱️ Reactivar +30 min
+            </button>
+          `;
+        } else {
+          ctrlBox.innerHTML = `
+            ${
+              !ev.sin_limite_tiempo
+                ? `<button type="button" class="btn-outline" style="padding:6px 12px;font-size:0.76rem;" onclick="cambiarEstadoFormulario('${ev.id}', 'ACTIVAR_PERMANENTE')">🔓 Dejar Siempre Activo</button>
+                   <button type="button" class="btn-outline" style="padding:6px 12px;font-size:0.76rem;" onclick="cambiarEstadoFormulario('${ev.id}', 'REACTIVAR_30M')">⏱️ +30 min</button>`
+                : ''
+            }
+            <button type="button" class="btn-outline" style="padding:6px 12px;font-size:0.76rem;color:#dc2626;border-color:#fca5a5;" onclick="cambiarEstadoFormulario('${ev.id}', 'DESACTIVAR')">
+              🔒 Desactivar Formulario
+            </button>
+          `;
+        }
+      }
     }
 
     function closeQrModal() {

@@ -10,6 +10,7 @@ const {
   DB_PATH,
   BASE_CATALOG_CAMPOS,
   computeEventStatus,
+  parseEventStartDate,
   parseUnidadesInvitadas,
   getAllConfigs,
   updateConfigs,
@@ -530,7 +531,16 @@ async function requestHandler(req, res) {
       const tipo = String(body.tipo || 'Presencial').trim();
       const procesoIso = String(body.proceso_iso || '').trim();
       const planificacion = String(body.planificacion || '').trim();
-      const duracionVentana = Number(body.duracion_ventana_min || 30);
+      const duracionVentana =
+        body.duracion_ventana_min !== undefined && body.duracion_ventana_min !== null
+          ? Number(body.duracion_ventana_min)
+          : 30;
+      const estadoManual =
+        body.estado_manual !== undefined
+          ? String(body.estado_manual)
+          : duracionVentana <= 0
+          ? 'FORZAR_ABIERTA'
+          : 'AUTO';
 
       if (!tema || !fecha || !hora) {
         return sendJSON(res, 400, {
@@ -560,7 +570,7 @@ async function requestHandler(req, res) {
           id, token, tema, fecha, hora, direccion_organiza, unidades_invitadas,
           lugar, tipo, proceso_iso, planificacion, organizador, descripcion,
           duracion_ventana_min, estado_manual, creado_en, actualizado_en
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AUTO', ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         token,
@@ -576,6 +586,7 @@ async function requestHandler(req, res) {
         direccionOrganiza,
         '',
         duracionVentana,
+        estadoManual,
         nowIso,
         nowIso
       );
@@ -587,13 +598,16 @@ async function requestHandler(req, res) {
       return sendJSON(res, 201, { evento: enriched });
     }
 
-    const eventoIdMatch = pathname.match(/^\/api\/eventos\/([a-f0-9-]+)$/i);
+    const eventoIdMatch = pathname.match(/^\/api\/eventos\/([^/]+)$/i);
     if (eventoIdMatch) {
-      const eventoId = eventoIdMatch[1];
-      const existing = db.prepare('SELECT * FROM eventos WHERE id = ?').get(eventoId);
+      const idOrToken = eventoIdMatch[1];
+      const existing = db
+        .prepare('SELECT * FROM eventos WHERE id = ? OR token = ?')
+        .get(idOrToken, idOrToken);
       if (!existing) {
         return sendJSON(res, 404, { error: 'Evento no encontrado.' });
       }
+      const eventoId = existing.id;
 
       if (method === 'PUT') {
         const body = await readJsonBody(req);
@@ -614,12 +628,32 @@ async function requestHandler(req, res) {
           body.proceso_iso !== undefined ? String(body.proceso_iso).trim() : existing.proceso_iso;
         const planificacion =
           body.planificacion !== undefined ? String(body.planificacion).trim() : existing.planificacion;
-        const duracionVentana =
+
+        let duracionVentana =
           body.duracion_ventana_min !== undefined
             ? Number(body.duracion_ventana_min)
             : existing.duracion_ventana_min;
-        const estadoManual =
+        let estadoManual =
           body.estado_manual !== undefined ? String(body.estado_manual) : existing.estado_manual;
+
+        if (body.accion === 'ACTIVAR_PERMANENTE') {
+          estadoManual = 'FORZAR_ABIERTA';
+        } else if (body.accion === 'REACTIVAR_TIEMPO' || body.accion === 'REACTIVAR_30M') {
+          const extraMin = Math.max(1, Number(body.minutos || 30));
+          const startDate = parseEventStartDate(fecha, hora);
+          const createdMs = existing.creado_en ? new Date(existing.creado_en).getTime() : 0;
+          const effectiveStartMs =
+            !isNaN(createdMs) && createdMs > startDate.getTime() ? createdMs : startDate.getTime();
+          const targetExpirationMs = Date.now() + extraMin * 60 * 1000;
+          duracionVentana = Math.max(
+            extraMin,
+            Math.ceil((targetExpirationMs - effectiveStartMs) / 60000)
+          );
+          estadoManual = 'AUTO';
+        } else if (body.accion === 'DESACTIVAR') {
+          estadoManual = 'FORZAR_CERRADA';
+        }
+
         const nowIso = getNowISO();
 
         db.prepare(`
@@ -970,7 +1004,10 @@ async function requestHandler(req, res) {
       }
 
       if (tipo === 'evento') {
-        db.prepare('UPDATE eventos SET eliminado = 0, eliminado_en = NULL, actualizado_en = ? WHERE id = ?').run(now, id);
+        const ev = db.prepare('SELECT * FROM eventos WHERE id = ?').get(id);
+        const status = ev ? computeEventStatus(ev) : null;
+        const nuevoEstadoManual = status && !status.activa ? 'FORZAR_ABIERTA' : (ev ? ev.estado_manual : 'AUTO');
+        db.prepare('UPDATE eventos SET eliminado = 0, eliminado_en = NULL, estado_manual = ?, actualizado_en = ? WHERE id = ?').run(nuevoEstadoManual, now, id);
         db.prepare('UPDATE asistencias SET eliminado = 0, eliminado_en = NULL, actualizado_en = ? WHERE evento_id = ?').run(now, id);
         broadcastSSE('evento_restaurado', { id });
       } else if (tipo === 'asistencia') {
