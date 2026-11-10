@@ -30,6 +30,12 @@
       font-family: 'Franklin Gothic';
       src: url('/fonts/FranklinGothic-Heavy.ttf') format('truetype');
       font-weight: 800;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Heavy.ttf') format('truetype');
       font-weight: 900;
       font-style: normal;
       font-display: swap;
@@ -157,13 +163,13 @@
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--dark);
+      color: #52525b !important;
     }
 
     .sheet-title-box p {
       font-size: 0.78rem;
-      color: var(--primary);
-      font-weight: 700;
+      color: #4b5563 !important;
+      font-weight: 800 !important;
       text-transform: uppercase;
       margin-top: 4px;
     }
@@ -184,9 +190,9 @@
 
     .meta-table th {
       background: #f1f5f9;
-      color: var(--dark);
+      color: #4b5563 !important;
       width: 165px;
-      font-weight: 800;
+      font-weight: 800 !important;
       text-transform: uppercase;
       font-size: 0.74rem;
     }
@@ -221,6 +227,13 @@
 
     .attendance-table tbody tr:nth-child(even) {
       background: #f8fafc;
+    }
+
+    .attendance-table tbody td.col-num {
+      background: #ffffff !important;
+      text-align: center !important;
+      font-weight: 700 !important;
+      color: var(--dark) !important;
     }
 
     .sig-cell {
@@ -320,10 +333,10 @@
       </div>
       <div class="sheet-title-box">
         <h1 id="headerTitle">ASISTENCIA DE PARTICIPACIÓN</h1>
-        <p>Registro Oficial de Asistencia y Participación Institucional</p>
+        <p><strong>Registro Oficial de Participación y Firmas</strong></p>
       </div>
       <div class="sheet-logo right" id="rightLogoBox">
-        <img id="rightLogo" src="" alt="" style="display:none;" />
+        <img id="rightLogo" src="/image/Jaguar34.png" alt="Logo Jaguar 34" />
       </div>
     </div>
 
@@ -388,12 +401,12 @@
         </thead>
         <tbody>
           <tr>
-            <td><strong>Masculino</strong></td>
+            <td><strong>Varón</strong></td>
             <td style="text-align:center;" id="actaMascCount">0</td>
             <td style="text-align:center;" id="actaMascPct">0.0%</td>
           </tr>
           <tr>
-            <td><strong>Femenino</strong></td>
+            <td><strong>Mujer</strong></td>
             <td style="text-align:center;" id="actaFemCount">0</td>
             <td style="text-align:center;" id="actaFemPct">0.0%</td>
           </tr>
@@ -416,6 +429,29 @@
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+    }
+
+    function formatHoraAmPm(horaStr) {
+      const raw = String(horaStr || '').trim();
+      if (!raw || raw === 'Sin límite' || raw === '--' || raw === '--:--') return raw || '--';
+      if (/a\.?\s*m\.?|p\.?\s*m\.?/i.test(raw)) return raw;
+      const m = raw.match(/^(\d{1,2}):(\d{2})/);
+      if (!m) return raw;
+      let hh = parseInt(m[1], 10);
+      const mm = m[2];
+      if (isNaN(hh)) return raw;
+      const suffix = hh >= 12 ? 'p.m.' : 'a.m.';
+      hh = hh % 12;
+      if (hh === 0) hh = 12;
+      return `${String(hh).padStart(2, '0')}:${mm} ${suffix}`;
+    }
+
+    function normalizeSexoDisplay(val) {
+      const s = String(val || '').trim();
+      const low = s.toLowerCase();
+      if (low === 'femenino' || low === 'f' || low === 'mujer') return 'Mujer';
+      if (low === 'masculino' || low === 'm' || low === 'varon' || low === 'varón' || low === 'v') return 'Varón';
+      return s;
     }
 
     async function loadSheet() {
@@ -450,12 +486,12 @@
           (evData.config.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN').toUpperCase();
         if (evData.config.logo_izquierdo) document.getElementById('leftLogo').src = evData.config.logo_izquierdo;
         const rightLogoEl = document.getElementById('rightLogo');
-        if (evData.config.logo_derecho && !evData.config.logo_derecho.toLowerCase().includes('uverde')) {
-          rightLogoEl.src = evData.config.logo_derecho;
-          rightLogoEl.style.display = 'block';
-        } else {
-          rightLogoEl.style.display = 'none';
-        }
+        const rightSrc =
+          evData.config.logo_derecho && !evData.config.logo_derecho.toLowerCase().includes('uverde')
+            ? evData.config.logo_derecho
+            : '/image/Jaguar34.png';
+        rightLogoEl.src = rightSrc;
+        rightLogoEl.style.display = 'block';
       }
 
       let orgDir = '';
@@ -464,7 +500,7 @@
         orgDir = ev.direccion_organiza || '';
         document.getElementById('metaTema').textContent = ev.tema;
         document.getElementById('metaFecha').textContent = ev.fecha;
-        document.getElementById('metaHora').textContent = `${ev.hora} (Cierre: ${ev.hora_cierre})`;
+        document.getElementById('metaHora').textContent = `${formatHoraAmPm(ev.hora)} (Cierre: ${formatHoraAmPm(ev.hora_cierre)})`;
         document.getElementById('metaDireccion').textContent = ev.direccion_organiza || '--';
         document.getElementById('metaLugarTipo').textContent = `${ev.lugar || 'Institucional'} (${ev.tipo || 'Presencial'})`;
         document.getElementById('metaProceso').textContent = ev.proceso_iso || '--';
@@ -492,20 +528,20 @@
         return Number(a.id || 0) - Number(b.id || 0);
       });
 
-      let mascCount = 0;
-      let femCount = 0;
+      let varonCount = 0;
+      let mujerCount = 0;
       for (const r of list) {
-        const sx = normU(r.sexo);
-        if (sx.startsWith('m')) mascCount++;
-        else if (sx.startsWith('f')) femCount++;
+        const sxNorm = normalizeSexoDisplay(r.sexo);
+        if (sxNorm === 'Varón') varonCount++;
+        else if (sxNorm === 'Mujer') mujerCount++;
       }
       const totalCount = list.length;
-      document.getElementById('actaMascCount').textContent = mascCount;
+      document.getElementById('actaMascCount').textContent = varonCount;
       document.getElementById('actaMascPct').textContent =
-        totalCount > 0 ? ((mascCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
-      document.getElementById('actaFemCount').textContent = femCount;
+        totalCount > 0 ? ((varonCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+      document.getElementById('actaFemCount').textContent = mujerCount;
       document.getElementById('actaFemPct').textContent =
-        totalCount > 0 ? ((femCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+        totalCount > 0 ? ((mujerCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
       document.getElementById('actaTotalCount').textContent = totalCount;
       document.getElementById('actaTotalPct').textContent = totalCount > 0 ? '100.0%' : '0.0%';
       const tbody = document.getElementById('rowsBody');
@@ -519,12 +555,12 @@
         .map(
           (row, idx) => `
         <tr>
-          <td style="text-align:center;font-weight:700;">${idx + 1}</td>
+          <td class="col-num">${idx + 1}</td>
           <td><strong>${escapeHtml(row.nombre)}</strong></td>
           <td>${escapeHtml(row.unidad)}</td>
           <td>${escapeHtml(row.cargo || '-')}</td>
-          <td>${escapeHtml(row.sexo || '-')}</td>
-          <td>${escapeHtml(row.fecha)}<br/><small style="color:#64748b">${escapeHtml(row.hora)}</small></td>
+          <td style="text-align:center;">${escapeHtml(normalizeSexoDisplay(row.sexo) || '-')}</td>
+          <td style="text-align:center;">${escapeHtml(row.fecha)}<br/><small style="color:#64748b">${escapeHtml(formatHoraAmPm(row.hora))}</small></td>
           <td class="sig-cell">
             <img src="${row.firma_base64}" alt="Firma de ${escapeHtml(row.nombre)}" />
           </td>

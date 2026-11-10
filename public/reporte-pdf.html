@@ -30,6 +30,12 @@
       font-family: 'Franklin Gothic';
       src: url('/fonts/FranklinGothic-Heavy.ttf') format('truetype');
       font-weight: 800;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Heavy.ttf') format('truetype');
       font-weight: 900;
       font-style: normal;
       font-display: swap;
@@ -169,14 +175,14 @@
       font-weight: 800;
       letter-spacing: 0.05em;
       text-transform: uppercase;
-      color: var(--gray-title);
+      color: #52525b !important;
       margin-bottom: 3px;
     }
 
     .header-sub {
-      font-size: 0.78rem;
-      font-weight: 400;
-      color: var(--gray-muted);
+      font-size: 0.8rem;
+      font-weight: 800 !important;
+      color: #4b5563 !important;
       text-transform: uppercase;
       letter-spacing: 0.03em;
     }
@@ -209,10 +215,10 @@
     }
 
     .meta-label {
-      font-size: 0.7rem;
-      font-weight: 700;
+      font-size: 0.74rem;
+      font-weight: 800 !important;
       text-transform: uppercase;
-      color: var(--gray-muted);
+      color: #4b5563 !important;
       letter-spacing: 0.04em;
       margin-bottom: 2px;
     }
@@ -243,8 +249,8 @@
     }
 
     table.attendance-grid thead th {
-      background: var(--primary);
-      color: var(--white);
+      background: var(--primary) !important;
+      color: var(--white) !important;
       font-weight: 700;
       text-transform: uppercase;
       font-size: 0.78rem;
@@ -272,12 +278,20 @@
     }
 
     /* COLUMNAS REQUERIDAS */
-    .col-num {
-      width: 48px;
-      text-align: center;
+    th.col-num {
+      width: 50px;
+      text-align: center !important;
+      background: var(--primary) !important;
+      color: var(--white) !important;
+      font-weight: 700 !important;
+    }
+
+    table.attendance-grid tbody td.col-num {
+      width: 50px;
+      text-align: center !important;
       font-weight: 700 !important;
       color: var(--gray-title) !important;
-      background: #f1f5f9;
+      background: #ffffff !important;
     }
 
     .col-nombre {
@@ -432,41 +446,45 @@
       </div>
       <div class="header-center">
         <h1 class="header-title" id="instTitle">ASISTENCIA DE PARTICIPACIÓN</h1>
-        <p class="header-sub" id="instSub">Registro Oficial de Participación y Firmas</p>
+        <p class="header-sub" id="instSub"><strong>Registro Oficial de Participación y Firmas</strong></p>
       </div>
       <div class="logo-box">
-        <img id="rightLogoImg" src="" alt="" style="display:none;" />
+        <img id="rightLogoImg" src="/image/Jaguar34.png" alt="Logo Jaguar 34" />
       </div>
     </header>
 
     <!-- METADATOS Y FILTROS APLICADOS -->
     <section class="meta-banner" id="metaDetailsBanner">
-      <div class="meta-item span-2">
-        <span class="meta-label">Tema / Evento</span>
+      <div class="meta-item">
+        <span class="meta-label"><b>Tema / Evento</b></span>
         <span class="meta-val"><strong id="bannerTema">Todas las Listas de Asistencia</strong></span>
       </div>
       <div class="meta-item">
-        <span class="meta-label">Fecha / Período</span>
+        <span class="meta-label"><b>Fecha</b></span>
         <span class="meta-val" id="bannerFecha">Todas</span>
       </div>
       <div class="meta-item">
-        <span class="meta-label">Total Conteo de Filas</span>
+        <span class="meta-label"><b>Hora</b></span>
+        <span class="meta-val" id="bannerHora">--</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label"><b>Total Conteo de Filas</b></span>
         <span class="meta-val"><strong id="bannerTotalFilas" style="color:var(--primary);">0 participantes</strong></span>
       </div>
       <div class="meta-item">
-        <span class="meta-label">Dirección Organizadora</span>
+        <span class="meta-label"><b>Dirección Organizadora</b></span>
         <span class="meta-val" id="bannerDireccion">General Institucional</span>
       </div>
       <div class="meta-item">
-        <span class="meta-label">Modalidad / Lugar</span>
+        <span class="meta-label"><b>Modalidad / Lugar</b></span>
         <span class="meta-val" id="bannerLugarTipo">--</span>
       </div>
       <div class="meta-item">
-        <span class="meta-label">Proceso ISO</span>
+        <span class="meta-label"><b>Proceso ISO</b></span>
         <span class="meta-val" id="bannerProceso">--</span>
       </div>
       <div class="meta-item">
-        <span class="meta-label">Planificación</span>
+        <span class="meta-label"><b>Planificación</b></span>
         <span class="meta-val" id="bannerPlan">--</span>
       </div>
     </section>
@@ -494,7 +512,7 @@
       </table>
     </div>
 
-    <!-- CUADRO RESUMEN FINAL: MASCULINO, FEMENINO, TOTAL Y PORCENTAJE -->
+    <!-- CUADRO RESUMEN FINAL: VARÓN, MUJER, TOTAL Y PORCENTAJE -->
     <div class="gender-summary-wrap">
       <table class="gender-summary-table">
         <thead>
@@ -506,12 +524,12 @@
         </thead>
         <tbody id="genderSummaryBody">
           <tr>
-            <td><strong>Masculino</strong></td>
+            <td><strong>Varón</strong></td>
             <td style="text-align:center;" id="sumMascCount">0</td>
             <td style="text-align:center;" id="sumMascPct">0.0%</td>
           </tr>
           <tr>
-            <td><strong>Femenino</strong></td>
+            <td><strong>Mujer</strong></td>
             <td style="text-align:center;" id="sumFemCount">0</td>
             <td style="text-align:center;" id="sumFemPct">0.0%</td>
           </tr>
@@ -551,12 +569,36 @@
         .replace(/>/g, '&gt;');
     }
 
+    function formatHoraAmPm(horaStr) {
+      const raw = String(horaStr || '').trim();
+      if (!raw || raw === '--' || raw === '--:--') return raw || '--';
+      if (/a\.?\s*m\.?|p\.?\s*m\.?/i.test(raw)) return raw;
+      const m = raw.match(/^(\d{1,2}):(\d{2})/);
+      if (!m) return raw;
+      let hh = parseInt(m[1], 10);
+      const mm = m[2];
+      if (isNaN(hh)) return raw;
+      const suffix = hh >= 12 ? 'p.m.' : 'a.m.';
+      hh = hh % 12;
+      if (hh === 0) hh = 12;
+      return `${String(hh).padStart(2, '0')}:${mm} ${suffix}`;
+    }
+
+    function normalizeSexoDisplay(val) {
+      const s = String(val || '').trim();
+      const low = s.toLowerCase();
+      if (low === 'femenino' || low === 'f' || low === 'mujer') return 'Mujer';
+      if (low === 'masculino' || low === 'm' || low === 'varon' || low === 'varón' || low === 'v') return 'Varón';
+      return s;
+    }
+
     async function loadReportData() {
-      // Registrar hora de impresión
+      // Registrar hora de impresión con formato a.m. / p.m.
       const now = new Date();
       document.getElementById('printedDateTime').textContent = now.toLocaleString('es-NI', {
         dateStyle: 'long',
-        timeStyle: 'medium',
+        timeStyle: 'short',
+        hour12: true,
       });
 
       // Sincronizar respaldo local para contenedores serverless
@@ -592,12 +634,12 @@
           document.getElementById('leftLogoImg').src = cfg.logo_izquierdo;
         }
         const rightLogoEl = document.getElementById('rightLogoImg');
-        if (cfg.logo_derecho && !cfg.logo_derecho.toLowerCase().includes('uverde')) {
-          rightLogoEl.src = cfg.logo_derecho;
-          rightLogoEl.style.display = 'block';
-        } else {
-          rightLogoEl.style.display = 'none';
-        }
+        const rightSrc =
+          cfg.logo_derecho && !cfg.logo_derecho.toLowerCase().includes('uverde')
+            ? cfg.logo_derecho
+            : '/image/Jaguar34.png';
+        rightLogoEl.src = rightSrc;
+        rightLogoEl.style.display = 'block';
       } catch (err) {
         console.error(err);
       }
@@ -613,7 +655,8 @@
           if (target) {
             eventDireccionOrganiza = target.direccion_organiza || '';
             document.getElementById('bannerTema').textContent = target.tema;
-            document.getElementById('bannerFecha').textContent = `${target.fecha} — ${target.hora}`;
+            document.getElementById('bannerFecha').textContent = target.fecha;
+            document.getElementById('bannerHora').textContent = formatHoraAmPm(target.hora);
             document.getElementById('bannerDireccion').textContent = target.direccion_organiza || 'Institucional';
             document.getElementById('bannerLugarTipo').textContent = `${target.lugar || 'Institucional'} (${target.tipo || 'Presencial'})`;
             document.getElementById('bannerProceso').textContent = target.proceso_iso || 'General';
@@ -664,13 +707,27 @@
         const data = await res.json();
         const rawList = (data.asistencias || []).slice().reverse();
 
-        // Si no se especificó eventoId pero todos los registros pertenecen a la misma Dirección Organizadora, usar su logo
-        if (!eventDireccionOrganiza && rawList.length > 0) {
-          const uniqueDirs = Array.from(
-            new Set(rawList.map((r) => String(r.evento_direccion_organiza || '').trim()).filter(Boolean))
-          );
-          if (uniqueDirs.length === 1) {
-            eventDireccionOrganiza = uniqueDirs[0];
+        // Si no se especificó eventoId, inferir metadatos (Tema, Fecha, Hora a.m./p.m., Dirección, Lugar, Proceso ISO, Planificación) si son únicos
+        if (!eventoId && !token && rawList.length > 0) {
+          const uniq = (arr) => Array.from(new Set(arr.map((x) => String(x || '').trim()).filter(Boolean)));
+          const uTemas = uniq(rawList.map((r) => r.tema));
+          const uFechas = uniq(rawList.map((r) => r.fecha));
+          const uHoras = uniq(rawList.map((r) => r.hora));
+          const uDirs = uniq(rawList.map((r) => r.evento_direccion_organiza));
+          const uLugares = uniq(rawList.map((r) => r.evento_lugar ? `${r.evento_lugar} (${r.evento_tipo || 'Presencial'})` : ''));
+          const uProcesos = uniq(rawList.map((r) => r.evento_proceso_iso));
+          const uPlanes = uniq(rawList.map((r) => r.evento_planificacion));
+
+          if (uTemas.length === 1) document.getElementById('bannerTema').textContent = uTemas[0];
+          if (uFechas.length === 1) document.getElementById('bannerFecha').textContent = uFechas[0];
+          if (uHoras.length === 1) document.getElementById('bannerHora').textContent = formatHoraAmPm(uHoras[0]);
+          else if (uHoras.length > 1) document.getElementById('bannerHora').textContent = uHoras.map(formatHoraAmPm).join(' / ');
+          if (uLugares.length === 1) document.getElementById('bannerLugarTipo').textContent = uLugares[0];
+          if (uProcesos.length === 1) document.getElementById('bannerProceso').textContent = uProcesos[0];
+          if (uPlanes.length === 1) document.getElementById('bannerPlan').textContent = uPlanes[0];
+
+          if (!eventDireccionOrganiza && uDirs.length === 1) {
+            eventDireccionOrganiza = uDirs[0];
             document.getElementById('bannerDireccion').textContent = eventDireccionOrganiza;
             try {
               const logoRes = await fetch(`/api/logo-direccion?direccion=${encodeURIComponent(eventDireccionOrganiza)}`);
@@ -709,23 +766,23 @@
           return Number(a.id || 0) - Number(b.id || 0);
         });
 
-        // III - Calcular conteo y porcentaje de Masculino, Femenino y Total
-        let mascCount = 0;
-        let femCount = 0;
+        // III - Calcular conteo y porcentaje de Varón, Mujer y Total
+        let varonCount = 0;
+        let mujerCount = 0;
         for (const r of list) {
-          const sx = normU(r.sexo);
-          if (sx.startsWith('m')) mascCount++;
-          else if (sx.startsWith('f')) femCount++;
+          const sxNorm = normalizeSexoDisplay(r.sexo);
+          if (sxNorm === 'Varón') varonCount++;
+          else if (sxNorm === 'Mujer') mujerCount++;
         }
         const totalCount = list.length;
-        const mascPct = totalCount > 0 ? ((mascCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
-        const femPct = totalCount > 0 ? ((femCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+        const varonPct = totalCount > 0 ? ((varonCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+        const mujerPct = totalCount > 0 ? ((mujerCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
         const totalPct = totalCount > 0 ? '100.0%' : '0.0%';
 
-        document.getElementById('sumMascCount').textContent = mascCount;
-        document.getElementById('sumMascPct').textContent = mascPct;
-        document.getElementById('sumFemCount').textContent = femCount;
-        document.getElementById('sumFemPct').textContent = femPct;
+        document.getElementById('sumMascCount').textContent = varonCount;
+        document.getElementById('sumMascPct').textContent = varonPct;
+        document.getElementById('sumFemCount').textContent = mujerCount;
+        document.getElementById('sumFemPct').textContent = mujerPct;
         document.getElementById('sumTotalCount').textContent = totalCount;
         document.getElementById('sumTotalPct').textContent = totalPct;
 
@@ -752,7 +809,7 @@
               <td class="col-nombre">${escapeHtml(row.nombre)}</td>
               <td class="col-unidad">${escapeHtml(row.unidad)}</td>
               <td class="col-cargo">${escapeHtml(row.cargo || '-')}</td>
-              <td class="col-sexo">${escapeHtml(row.sexo || '-')}</td>
+              <td class="col-sexo">${escapeHtml(normalizeSexoDisplay(row.sexo) || '-')}</td>
               <td class="col-firma">
                 ${
                   row.firma_base64

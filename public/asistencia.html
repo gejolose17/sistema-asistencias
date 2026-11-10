@@ -30,6 +30,12 @@
       font-family: 'Franklin Gothic';
       src: url('/fonts/FranklinGothic-Heavy.ttf') format('truetype');
       font-weight: 800;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Heavy.ttf') format('truetype');
       font-weight: 900;
       font-style: normal;
       font-display: swap;
@@ -156,10 +162,10 @@
 
     .header-title {
       font-size: clamp(1rem, 2.8vw, 1.42rem);
-      font-weight: 900;
+      font-weight: 800;
       letter-spacing: 0.05em;
       text-transform: uppercase;
-      color: var(--dark-gray);
+      color: #52525b !important;
       line-height: 1.2;
     }
 
@@ -173,8 +179,8 @@
 
     .header-subtitle {
       font-size: clamp(0.68rem, 1.8vw, 0.8rem);
-      color: var(--mid-gray);
-      font-weight: 700;
+      color: #4b5563 !important;
+      font-weight: 800 !important;
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
@@ -665,11 +671,11 @@
       <div class="header-center">
         <h1 class="header-title" id="headerTitleText">ASISTENCIA DE PARTICIPACIÓN</h1>
         <div class="header-accent-line"></div>
-        <p class="header-subtitle">Registro Digital de Asistencia</p>
+        <p class="header-subtitle"><strong>Registro Oficial de Participación y Firmas</strong></p>
       </div>
 
       <div class="logo-slot" title="Logo Derecho">
-        <img id="logoRightImg" src="" alt="" style="display:none;" />
+        <img id="logoRightImg" src="/image/Jaguar34.png" alt="Logo Jaguar 34" />
         <button type="button" class="logo-edit-btn" onclick="triggerLogoUpload('right')">✎ Logo</button>
       </div>
 
@@ -862,8 +868,20 @@
     const sigPlaceholder = document.getElementById('sigPlaceholder');
     const sigBox = document.getElementById('sigBox');
 
+    const SIGNATURE_COLOR = '#0038A8';
+    const SIGNATURE_WIDTH = 4.2;
+
     let drawing = false;
     let lastPoint = null;
+    let lastMidPoint = null;
+
+    function applySignaturePenStyle() {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = SIGNATURE_COLOR;
+      ctx.fillStyle = SIGNATURE_COLOR;
+      ctx.lineWidth = SIGNATURE_WIDTH;
+    }
 
     function resizeCanvas() {
       const rect = canvas.getBoundingClientRect();
@@ -880,10 +898,7 @@
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
 
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#111827';
-      ctx.lineWidth = 2.6;
+      applySignaturePenStyle();
 
       if (prevData) {
         const img = new Image();
@@ -911,35 +926,47 @@
       strokeCount++;
       sigPlaceholder.classList.add('hidden');
       sigBox.classList.add('active-signing');
+      applySignaturePenStyle();
       lastPoint = getPointerPos(e);
+      lastMidPoint = { ...lastPoint };
 
       ctx.beginPath();
-      ctx.arc(lastPoint.x, lastPoint.y, 1.4, 0, Math.PI * 2);
-      ctx.fillStyle = '#111827';
+      ctx.arc(lastPoint.x, lastPoint.y, SIGNATURE_WIDTH / 2, 0, Math.PI * 2);
       ctx.fill();
     }
 
     function moveDrawing(e) {
       if (!drawing) return;
       if (e.cancelable) e.preventDefault();
+      applySignaturePenStyle();
       const currentPoint = getPointerPos(e);
-      const midPoint = {
+      const currentMid = {
         x: (lastPoint.x + currentPoint.x) / 2,
         y: (lastPoint.y + currentPoint.y) / 2,
       };
 
       ctx.beginPath();
-      ctx.moveTo(lastPoint.x, lastPoint.y);
-      ctx.quadraticCurveTo(lastPoint.x, lastPoint.y, midPoint.x, midPoint.y);
+      ctx.moveTo(lastMidPoint.x, lastMidPoint.y);
+      ctx.quadraticCurveTo(lastPoint.x, lastPoint.y, currentMid.x, currentMid.y);
       ctx.stroke();
 
       lastPoint = currentPoint;
+      lastMidPoint = currentMid;
     }
 
     function stopDrawing(e) {
       if (!drawing) return;
       if (e && e.cancelable) e.preventDefault();
+      if (lastMidPoint && lastPoint) {
+        applySignaturePenStyle();
+        ctx.beginPath();
+        ctx.moveTo(lastMidPoint.x, lastMidPoint.y);
+        ctx.lineTo(lastPoint.x, lastPoint.y);
+        ctx.stroke();
+      }
       drawing = false;
+      lastPoint = null;
+      lastMidPoint = null;
       sigBox.classList.remove('active-signing');
     }
 
@@ -967,6 +994,29 @@
       const parts = fechaStr.split('-');
       if (parts.length !== 3) return fechaStr;
       return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
+    function formatHoraAmPm(horaStr) {
+      const raw = String(horaStr || '').trim();
+      if (!raw || raw === 'Sin límite' || raw === '--' || raw === '--:--') return raw || '--:--';
+      if (/a\.?\s*m\.?|p\.?\s*m\.?/i.test(raw)) return raw;
+      const m = raw.match(/^(\d{1,2}):(\d{2})/);
+      if (!m) return raw;
+      let hh = parseInt(m[1], 10);
+      const mm = m[2];
+      if (isNaN(hh)) return raw;
+      const suffix = hh >= 12 ? 'p.m.' : 'a.m.';
+      hh = hh % 12;
+      if (hh === 0) hh = 12;
+      return `${String(hh).padStart(2, '0')}:${mm} ${suffix}`;
+    }
+
+    function normalizeSexoOption(val) {
+      const s = String(val || '').trim();
+      const low = s.toLowerCase();
+      if (low === 'femenino' || low === 'f' || low === 'mujer') return 'Mujer';
+      if (low === 'masculino' || low === 'm' || low === 'varon' || low === 'varón' || low === 'v') return 'Varón';
+      return s;
     }
 
     function escapeHtml(str) {
@@ -1140,17 +1190,16 @@
           (cfg.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN').toUpperCase();
         if (cfg.logo_izquierdo) document.getElementById('logoLeftImg').src = cfg.logo_izquierdo;
         const rLogo = document.getElementById('logoRightImg');
-        if (cfg.logo_derecho && !cfg.logo_derecho.toLowerCase().includes('uverde')) {
-          rLogo.src = cfg.logo_derecho;
-          rLogo.style.display = '';
-        } else {
-          rLogo.removeAttribute('src');
-          rLogo.style.display = 'none';
-        }
+        const rLogoSrc =
+          cfg.logo_derecho && !cfg.logo_derecho.toLowerCase().includes('uverde')
+            ? cfg.logo_derecho
+            : '/image/Jaguar34.png';
+        rLogo.src = rLogoSrc;
+        rLogo.style.display = '';
 
         document.getElementById('autoTema').textContent = currentEvent.tema;
         document.getElementById('autoFecha').textContent = formatFechaDisplay(currentEvent.fecha);
-        document.getElementById('autoHora').textContent = currentEvent.hora;
+        document.getElementById('autoHora').textContent = formatHoraAmPm(currentEvent.hora);
 
         // Mostrar chips informativos de la reunión programada
         const chips = [];
@@ -1207,13 +1256,17 @@
           cargoSelect.appendChild(opt);
         }
 
-        // Poblar Sexo
+        // Poblar Sexo (Mujer / Varón)
         const sexoSelect = document.getElementById('sexoSelect');
         sexoSelect.innerHTML = '<option value="">-- Seleccione --</option>';
-        for (const s of catalogos.SEXO || []) {
+        const rawSexoList = Array.isArray(catalogos.SEXO) && catalogos.SEXO.length > 0
+          ? catalogos.SEXO.map((s) => normalizeSexoOption(s.nombre))
+          : ['Mujer', 'Varón'];
+        const uniqueSexoList = Array.from(new Set(rawSexoList.filter(Boolean)));
+        for (const sNombre of uniqueSexoList) {
           const opt = document.createElement('option');
-          opt.value = s.nombre;
-          opt.textContent = s.nombre;
+          opt.value = sNombre;
+          opt.textContent = sNombre;
           sexoSelect.appendChild(opt);
         }
 

@@ -1390,10 +1390,11 @@
                   <img id="previewLeftLogo" src="/image/uamh.png" alt="Logo Izq" style="max-height:56px;max-width:100%;object-fit:contain;" />
                 </div>
                 <div style="text-align:center;">
-                  <strong id="previewHeaderTitle" style="font-size:1.1rem;text-transform:uppercase;color:var(--dark-gray);">ASISTENCIA DE PARTICIPACIÓN</strong>
+                  <strong id="previewHeaderTitle" style="font-size:1.1rem;text-transform:uppercase;color:#52525b;">ASISTENCIA DE PARTICIPACIÓN</strong>
+                  <div style="font-size:0.74rem;font-weight:800;color:#4b5563;text-transform:uppercase;margin-top:3px;"><strong>Registro Oficial de Participación y Firmas</strong></div>
                 </div>
                 <div style="text-align:center;">
-                  <img id="previewRightLogo" src="" alt="" style="max-height:56px;max-width:100%;object-fit:contain;display:none;" />
+                  <img id="previewRightLogo" src="/image/Jaguar34.png" alt="Logo Der" style="max-height:56px;max-width:100%;object-fit:contain;" />
                 </div>
               </div>
 
@@ -1930,13 +1931,12 @@
           (cfg.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN').toUpperCase();
         if (cfg.logo_izquierdo) document.getElementById('previewLeftLogo').src = cfg.logo_izquierdo;
         const prevRight = document.getElementById('previewRightLogo');
-        if (cfg.logo_derecho && !cfg.logo_derecho.toLowerCase().includes('uverde')) {
-          prevRight.src = cfg.logo_derecho;
-          prevRight.style.display = '';
-        } else {
-          prevRight.removeAttribute('src');
-          prevRight.style.display = 'none';
-        }
+        const rightSrc =
+          cfg.logo_derecho && !cfg.logo_derecho.toLowerCase().includes('uverde')
+            ? cfg.logo_derecho
+            : '/image/Jaguar34.png';
+        prevRight.src = rightSrc;
+        prevRight.style.display = '';
 
         document.getElementById('cfgHeaderTitle').value =
           (cfg.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN').toUpperCase();
@@ -2560,6 +2560,29 @@
     }
 
     // ── Pestaña 3: Base de Datos General ──
+    function normalizeSexoLabel(val) {
+      const s = String(val || '').trim();
+      const low = s.toLowerCase();
+      if (low === 'femenino' || low === 'f' || low === 'mujer') return 'Mujer';
+      if (low === 'masculino' || low === 'm' || low === 'varon' || low === 'varón' || low === 'v') return 'Varón';
+      return s;
+    }
+
+    function formatHoraAmPmUi(horaStr) {
+      const raw = String(horaStr || '').trim();
+      if (!raw || raw === 'Sin límite' || raw === '--' || raw === '--:--') return raw;
+      if (/a\.?\s*m\.?|p\.?\s*m\.?/i.test(raw)) return raw;
+      const m = raw.match(/^(\d{1,2}):(\d{2})/);
+      if (!m) return raw;
+      let hh = parseInt(m[1], 10);
+      const mm = m[2];
+      if (isNaN(hh)) return raw;
+      const suffix = hh >= 12 ? 'p.m.' : 'a.m.';
+      hh = hh % 12;
+      if (hh === 0) hh = 12;
+      return `${String(hh).padStart(2, '0')}:${mm} ${suffix}`;
+    }
+
     async function loadCentralDatabase() {
       const q = document.getElementById('dbFilterSearch').value.trim();
       const eventoId = document.getElementById('dbFilterEvento').value;
@@ -2601,7 +2624,7 @@
           <td><strong>#${row.id}</strong></td>
           <td>
             <strong>${escapeHtml(row.fecha)}</strong><br/>
-            <small style="color:var(--muted)">${escapeHtml(row.hora)} (${escapeHtml(row.evento_tipo || 'Presencial')})</small>
+            <small style="color:var(--muted)">${escapeHtml(formatHoraAmPmUi(row.hora))} (${escapeHtml(row.evento_tipo || 'Presencial')})</small>
           </td>
           <td>
             <strong>${escapeHtml(row.tema)}</strong><br/>
@@ -2615,7 +2638,7 @@
           <td><span class="state-pill active">${escapeHtml(row.unidad)}</span></td>
           <td>
             <div>${escapeHtml(row.cargo || '-')}</div>
-            <small style="color:var(--muted)">${escapeHtml(row.sexo || '-')}</small>
+            <small style="color:var(--muted)">${escapeHtml(normalizeSexoLabel(row.sexo) || '-')}</small>
           </td>
           <td><img class="sig-thumb" src="${row.firma_base64}" alt="Firma" /></td>
           <td>
@@ -2800,7 +2823,7 @@
                   <td><span class="state-pill active">${escapeHtml(a.unidad || '-')}</span></td>
                   <td>
                     <div>${escapeHtml(a.cargo || '-')}</div>
-                    <small style="color:var(--muted)">${escapeHtml(a.sexo || '-')}</small>
+                    <small style="color:var(--muted)">${escapeHtml(normalizeSexoLabel(a.sexo) || '-')}</small>
                   </td>
                   <td><small style="color:var(--muted);">${elimFecha}</small></td>
                   <td style="text-align:center;">

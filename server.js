@@ -20,6 +20,8 @@ const {
   getCatalogos,
   syncClientDataToDb,
   resolveLogoForDireccion,
+  normalizeSexo,
+  formatHoraAmPm,
   getNowISO,
 } = require('./lib/db');
 const { generateQRSVG, generateQRMatrix } = require('./lib/qrcode');
@@ -334,7 +336,8 @@ async function requestHandler(req, res) {
 
     if (pathname === '/api/config' && method === 'GET') {
       const configs = getAllConfigs();
-      const cleanDerecho = String(configs.logo_derecho || '').replace(/.*uverde.*/i, '');
+      const cleanDerecho =
+        String(configs.logo_derecho || '').replace(/.*uverde.*/i, '') || '/image/Jaguar34.png';
       return sendJSON(res, 200, {
         ...configs,
         logo_derecho: cleanDerecho,
@@ -774,10 +777,9 @@ async function requestHandler(req, res) {
           : allUnidadesCatalog;
 
       const dirLogo = resolveLogoForDireccion(evento.direccion_organiza);
-      const cleanRightLogo = String(evento.logo_derecho_custom || configs.logo_derecho || '').replace(
-        /.*uverde.*/i,
-        ''
-      );
+      const cleanRightLogo =
+        String(evento.logo_derecho_custom || configs.logo_derecho || '').replace(/.*uverde.*/i, '') ||
+        '/image/Jaguar34.png';
 
       return sendJSON(res, 200, {
         evento: status,
@@ -788,7 +790,7 @@ async function requestHandler(req, res) {
         },
         config: {
           titulo_header: configs.titulo_header || 'ASISTENCIA DE PARTICIPACIÓN',
-          subtitulo_header: configs.subtitulo_header || '',
+          subtitulo_header: configs.subtitulo_header || 'Registro Oficial de Participación y Firmas',
           logo_izquierdo: dirLogo || evento.logo_izquierdo_custom || configs.logo_izquierdo || '/image/uamh.png',
           logo_derecho: cleanRightLogo,
           mensaje_gracias_titulo: configs.mensaje_gracias_titulo || '¡Gracias por llenar esta asistencia!',
@@ -820,7 +822,7 @@ async function requestHandler(req, res) {
       const body = await readJsonBody(req);
       const unidad = String(body.unidad || '').trim();
       const cargo = String(body.cargo || '').trim();
-      const sexo = String(body.sexo || '').trim();
+      const sexo = normalizeSexo(body.sexo || '');
       const nombre = String(body.nombre || '').trim();
       const firmaBase64 = String(body.firma_base64 || '').trim();
 
@@ -964,9 +966,14 @@ async function requestHandler(req, res) {
         `)
         .all(...params);
 
+      const normalizedRows = rows.map((r) => ({
+        ...r,
+        sexo: normalizeSexo(r.sexo),
+      }));
+
       return sendJSON(res, 200, {
-        total: rows.length,
-        asistencias: rows,
+        total: normalizedRows.length,
+        asistencias: normalizedRows,
       });
     }
 
@@ -1136,19 +1143,19 @@ async function requestHandler(req, res) {
         'IP Dispositivo',
       ];
 
-      let mascCount = 0;
-      let femCount = 0;
+      let varonCount = 0;
+      let mujerCount = 0;
       const csvLines = [headers.map(escapeCSV).join(',')];
       for (const r of rows) {
-        const sx = normU(r.sexo);
-        if (sx.startsWith('m')) mascCount++;
-        else if (sx.startsWith('f')) femCount++;
+        const sxNorm = normalizeSexo(r.sexo);
+        if (sxNorm === 'Varón') varonCount++;
+        else if (sxNorm === 'Mujer') mujerCount++;
 
         csvLines.push(
           [
             r.id,
             r.fecha,
-            r.hora,
+            formatHoraAmPm(r.hora),
             r.tema,
             r.direccion_organiza || '',
             r.lugar || '',
@@ -1157,7 +1164,7 @@ async function requestHandler(req, res) {
             r.planificacion || '',
             r.unidad,
             r.cargo || '',
-            r.sexo || '',
+            sxNorm || '',
             r.nombre,
             r.registrado_en,
             r.ip_dispositivo || '',
@@ -1168,14 +1175,14 @@ async function requestHandler(req, res) {
       }
 
       const totalCount = rows.length;
-      const mascPct = totalCount > 0 ? ((mascCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
-      const femPct = totalCount > 0 ? ((femCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+      const varonPct = totalCount > 0 ? ((varonCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+      const mujerPct = totalCount > 0 ? ((mujerCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
       const totalPct = totalCount > 0 ? '100.0%' : '0.0%';
 
       csvLines.push('');
       csvLines.push(['RESUMEN POR SEXO', 'CANTIDAD', 'PORCENTAJE'].map(escapeCSV).join(','));
-      csvLines.push(['Masculino', mascCount, mascPct].map(escapeCSV).join(','));
-      csvLines.push(['Femenino', femCount, femPct].map(escapeCSV).join(','));
+      csvLines.push(['Varón', varonCount, varonPct].map(escapeCSV).join(','));
+      csvLines.push(['Mujer', mujerCount, mujerPct].map(escapeCSV).join(','));
       csvLines.push(['TOTAL', totalCount, totalPct].map(escapeCSV).join(','));
 
       const csvContent = '\uFEFF' + csvLines.join('\r\n');
