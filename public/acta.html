@@ -5,9 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Acta Oficial — ASISTENCIA DE PARTICIPACIÓN</title>
   <style>
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Book.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Demi.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Heavy.ttf') format('truetype');
+      font-weight: 800;
+      font-weight: 900;
+      font-style: normal;
+      font-display: swap;
+    }
+
     :root {
       --primary: #0099a8;
       --dark: #1f2937;
+      --slate: #334155;
       --white: #ffffff;
     }
 
@@ -18,10 +49,21 @@
     }
 
     body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-family: 'Franklin Gothic', 'Franklin Gothic Medium', 'ITC Franklin Gothic', Arial, sans-serif;
       background: #e2e8f0;
-      color: var(--dark);
+      color: var(--slate);
+      font-weight: 400;
       padding: clamp(10px, 2.5vw, 24px);
+    }
+
+    h1, h2, h3, h4, h5, h6, strong, b, th {
+      font-family: 'Franklin Gothic', 'Franklin Gothic Medium', 'ITC Franklin Gothic', Arial, sans-serif;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    p, span, div, td, button, a {
+      font-family: 'Franklin Gothic', 'Franklin Gothic Medium', 'ITC Franklin Gothic', Arial, sans-serif;
     }
 
     .toolbar {

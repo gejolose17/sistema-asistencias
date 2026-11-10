@@ -155,6 +155,9 @@ const MIME_TYPES = {
   '.webp': 'image/webp',
   '.gif': 'image/gif',
   '.ico': 'image/x-icon',
+  '.ttf': 'font/ttf',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
 };
 
 function serveStaticFile(res, filePath) {
@@ -894,6 +897,10 @@ async function requestHandler(req, res) {
 
     if (pathname.startsWith('/acta/') && method === 'GET') {
       return serveStaticFile(res, path.join(PUBLIC_DIR, 'acta.html'));
+    }
+
+    if ((pathname === '/reporte-pdf' || pathname.startsWith('/reporte-pdf/') || pathname === '/reporte' || pathname.startsWith('/reporte/')) && method === 'GET') {
+      return serveStaticFile(res, path.join(PUBLIC_DIR, 'reporte-pdf.html'));
     }
 
     if (pathname === '/' || pathname === '/admin') {

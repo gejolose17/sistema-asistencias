@@ -5,6 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sistema de Gestión de Reuniones y Listas de Asistencia</title>
   <style>
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Book.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Demi.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Heavy.ttf') format('truetype');
+      font-weight: 800;
+      font-weight: 900;
+      font-style: normal;
+      font-display: swap;
+    }
+
     :root {
       --primary: #0099a8;
       --primary-dark: #007784;
@@ -27,12 +57,23 @@
     }
 
     body {
-      font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Franklin Gothic', 'Franklin Gothic Medium', 'ITC Franklin Gothic', Arial, sans-serif;
       background: var(--bg);
-      color: var(--dark-gray);
+      color: var(--slate);
+      font-weight: 400;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+    }
+
+    h1, h2, h3, h4, h5, h6, .brand-title, .tab-btn, th, .card-title, strong, b, .panel-header h2, .event-theme, .modal-title {
+      font-family: 'Franklin Gothic', 'Franklin Gothic Medium', 'ITC Franklin Gothic', Arial, sans-serif;
+      font-weight: 700;
+      color: var(--dark-gray);
+    }
+
+    p, span, div, td, input, select, textarea, button, label, a {
+      font-family: 'Franklin Gothic', 'Franklin Gothic Medium', 'ITC Franklin Gothic', Arial, sans-serif;
     }
 
     /* ── BARRA SUPERIOR DE APLICACIÓN (SIN EL HEADER DE LA HOJA DE ASISTENCIA) ── */
@@ -1018,9 +1059,12 @@
       <div class="panel-card">
         <div class="panel-header">
           <h2>🗄️ Base de Datos Centralizada de Asistencias</h2>
-          <div style="display:flex;gap:10px;">
-            <button type="button" class="btn-primary" style="padding:7px 14px;font-size:0.82rem;" onclick="exportFilteredCSV()">
-              ⬇️ Exportar Base de Datos a Excel (CSV)
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <button type="button" class="btn-primary" style="padding:8px 16px;font-size:0.84rem;font-weight:700;" onclick="descargarListaCompletaPDF()">
+              📄 Descargar lista completa
+            </button>
+            <button type="button" class="btn-outline" style="padding:8px 16px;font-size:0.84rem;" onclick="exportFilteredCSV()">
+              ⬇️ Exportar CSV
             </button>
           </div>
         </div>
@@ -1802,6 +1846,9 @@
               <a href="/acta/${encodeURIComponent(ev.token)}" target="_blank" class="btn-outline" style="padding:7px 11px;font-size:0.78rem;">
                 🖨️ Acta PDF
               </a>
+              <a href="/reporte-pdf?evento_id=${encodeURIComponent(ev.id)}" target="_blank" class="btn-primary" style="padding:7px 11px;font-size:0.78rem;" title="Reporte horizontal oficial con conteo y firmas">
+                📄 Lista Horizontal PDF
+              </a>
               <button type="button" class="btn-outline" style="padding:7px 11px;font-size:0.78rem;" onclick="rescheduleNowPlus30('${ev.id}')" title="Reactivar por 30 minutos desde ahora">
                 🔄 +30m
               </button>
@@ -1925,6 +1972,23 @@
       document.getElementById('dbFilterProceso').value = '';
       document.getElementById('dbFilterFecha').value = '';
       loadCentralDatabase();
+    }
+
+    function descargarListaCompletaPDF() {
+      const q = document.getElementById('dbFilterSearch') ? document.getElementById('dbFilterSearch').value.trim() : '';
+      const eventoId = document.getElementById('dbFilterEvento') ? document.getElementById('dbFilterEvento').value : '';
+      const unidad = document.getElementById('dbFilterUnidad') ? document.getElementById('dbFilterUnidad').value : '';
+      const procesoIso = document.getElementById('dbFilterProceso') ? document.getElementById('dbFilterProceso').value : '';
+      const fecha = document.getElementById('dbFilterFecha') ? document.getElementById('dbFilterFecha').value : '';
+
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (eventoId) params.set('evento_id', eventoId);
+      if (unidad) params.set('unidad', unidad);
+      if (procesoIso) params.set('proceso_iso', procesoIso);
+      if (fecha) params.set('fecha', fecha);
+
+      window.open(`/reporte-pdf?${params.toString()}`, '_blank');
     }
 
     function exportFilteredCSV() {

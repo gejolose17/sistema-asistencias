@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASISTENCIA DE PARTICIPACIÓN — Reporte PDF Horizontal</title>
+  <style>
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Book.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Demi.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Heavy.ttf') format('truetype');
+      font-weight: 800;
+      font-weight: 900;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --primary: #0099a8;
+      --primary-dark: #007784;
+      --gray-title: #1f2937;
+      --gray-text: #334155;
+      --gray-muted: #64748b;
+      --gray-border: #cbd5e1;
+      --gray-bg: #f8fafc;
+      --white: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    @page {
+      size: landscape;
+      margin: 8mm 10mm;
+    }
+
+    body {
+      font-family: 'Franklin Gothic', 'Franklin Gothic Medium', 'ITC Franklin Gothic', Arial, sans-serif;
+      background: #e2e8f0;
+      color: var(--gray-text);
+      font-weight: 400;
+      line-height: 1.4;
+      padding: 16px;
+    }
+
+    /* ── BARRA DE HERRAMIENTAS (SOLO EN PANTALLA) ── */
+    .screen-toolbar {
+      max-width: 1280px;
+      margin: 0 auto 14px;
+      background: var(--gray-title);
+      color: var(--white);
+      padding: 12px 20px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    }
+
+    .screen-toolbar strong {
+      font-weight: 700;
+      color: var(--white);
+    }
+
+    .btn {
+      font-family: 'Franklin Gothic', 'Franklin Gothic Medium', Arial, sans-serif;
+      background: var(--primary);
+      color: var(--white);
+      border: none;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 0.88rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn.secondary {
+      background: #475569;
+    }
+
+    .btn.secondary:hover {
+      background: #334155;
+    }
+
+    /* ── HOJA DEL REPORTE (OPTIMIZADA PARA PDF HORIZONTAL) ── */
+    .report-sheet {
+      max-width: 1280px;
+      margin: 0 auto;
+      background: var(--white);
+      padding: 24px 28px;
+      border-radius: 10px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+      border-top: 6px solid var(--primary);
+    }
+
+    /* ── HEADER INSTITUCIONAL ── */
+    .inst-header {
+      display: grid;
+      grid-template-columns: 160px 1fr 160px;
+      align-items: center;
+      gap: 14px;
+      border: 2px solid var(--gray-title);
+      padding: 10px 16px;
+      background: var(--white);
+      margin-bottom: 12px;
+    }
+
+    .logo-box {
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-box img {
+      max-width: 100%;
+      max-height: 64px;
+      object-fit: contain;
+    }
+
+    .header-center {
+      text-align: center;
+      padding: 0 8px;
+    }
+
+    .header-title {
+      font-size: 1.42rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--gray-title);
+      margin-bottom: 3px;
+    }
+
+    .header-sub {
+      font-size: 0.78rem;
+      font-weight: 400;
+      color: var(--gray-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    /* ── BANNER DE DETALLES Y FILTROS ── */
+    .meta-banner {
+      background: var(--gray-bg);
+      border: 1px solid var(--gray-border);
+      border-left: 5px solid var(--primary);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px 16px;
+      font-size: 0.84rem;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .meta-item.span-2 {
+      grid-column: span 2;
+    }
+
+    .meta-item.span-4 {
+      grid-column: 1 / -1;
+    }
+
+    .meta-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--gray-muted);
+      letter-spacing: 0.04em;
+      margin-bottom: 2px;
+    }
+
+    .meta-val {
+      font-size: 0.9rem;
+      font-weight: 400;
+      color: var(--gray-text);
+      word-break: break-word;
+    }
+
+    .meta-val strong {
+      font-weight: 700;
+      color: var(--gray-title);
+    }
+
+    /* ── TABLA DE ASISTENCIAS EN FORMATO PDF HORIZONTAL ── */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table.attendance-grid {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      background: var(--white);
+    }
+
+    table.attendance-grid thead th {
+      background: var(--gray-title);
+      color: var(--white);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      padding: 10px 12px;
+      border: 1px solid var(--gray-title);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    table.attendance-grid tbody tr {
+      page-break-inside: avoid;
+    }
+
+    table.attendance-grid tbody tr:nth-child(even) {
+      background: #f8fafc;
+    }
+
+    table.attendance-grid tbody td {
+      border: 1px solid var(--gray-border);
+      padding: 8px 12px;
+      vertical-align: middle;
+      font-weight: 400;
+      color: var(--gray-text);
+    }
+
+    /* COLUMNAS REQUERIDAS */
+    .col-num {
+      width: 48px;
+      text-align: center;
+      font-weight: 700 !important;
+      color: var(--gray-title) !important;
+      background: #f1f5f9;
+    }
+
+    .col-nombre {
+      width: 26%;
+      font-weight: 400;
+      color: var(--gray-title);
+    }
+
+    .col-unidad {
+      width: 22%;
+      font-weight: 400;
+    }
+
+    .col-cargo {
+      width: 20%;
+      font-weight: 400;
+    }
+
+    .col-sexo {
+      width: 14%;
+      text-align: center;
+      font-weight: 400;
+    }
+
+    .col-firma {
+      width: 18%;
+      text-align: center;
+      height: 52px;
+      background: var(--white);
+    }
+
+    .col-firma img {
+      max-height: 44px;
+      max-width: 160px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .summary-footer {
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 2px solid var(--gray-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 0.82rem;
+      color: var(--gray-muted);
+      font-weight: 400;
+    }
+
+    .summary-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--primary);
+      color: var(--white);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    @media print {
+      body {
+        background: var(--white);
+        padding: 0;
+      }
+      .screen-toolbar {
+        display: none !important;
+      }
+      .report-sheet {
+        box-shadow: none;
+        border-radius: 0;
+        padding: 0;
+        max-width: 100%;
+        border-top: none;
+      }
+      table.attendance-grid thead th {
+        background: #1f2937 !important;
+        color: #ffffff !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- BARRA DE ACCIÓN EN PANTALLA -->
+  <div class="screen-toolbar">
+    <div>
+      <strong>Reporte de Asistencia en Formato Horizontal (Landscape PDF)</strong>
+      <span style="font-size:0.8rem;margin-left:10px;opacity:0.85;" id="filterSummaryPill">Cargando filtros...</span>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <a href="/" class="btn secondary">← Volver a la Base de Datos</a>
+      <button type="button" class="btn" onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>
+    </div>
+  </div>
+
+  <div class="report-sheet">
+    <!-- HEADER INSTITUCIONAL -->
+    <header class="inst-header">
+      <div class="logo-box">
+        <img id="leftLogoImg" src="/uploads/logo-left-default.png" alt="Logo Izquierdo" />
+      </div>
+      <div class="header-center">
+        <h1 class="header-title" id="instTitle">ASISTENCIA DE PARTICIPACIÓN</h1>
+        <p class="header-sub" id="instSub">Registro Oficial de Participación y Firmas</p>
+      </div>
+      <div class="logo-box">
+        <img id="rightLogoImg" src="/uploads/logo-right-default.jpeg" alt="Logo Derecho" />
+      </div>
+    </header>
+
+    <!-- METADATOS Y FILTROS APLICADOS -->
+    <section class="meta-banner" id="metaDetailsBanner">
+      <div class="meta-item span-2">
+        <span class="meta-label">Tema / Evento</span>
+        <span class="meta-val"><strong id="bannerTema">Todas las Listas de Asistencia</strong></span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Fecha / Período</span>
+        <span class="meta-val" id="bannerFecha">Todas</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Total Conteo de Filas</span>
+        <span class="meta-val"><strong id="bannerTotalFilas" style="color:var(--primary);">0 participantes</strong></span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Dirección Organizadora</span>
+        <span class="meta-val" id="bannerDireccion">General Institucional</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Modalidad / Lugar</span>
+        <span class="meta-val" id="bannerLugarTipo">--</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Proceso ISO</span>
+        <span class="meta-val" id="bannerProceso">--</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Planificación</span>
+        <span class="meta-val" id="bannerPlan">--</span>
+      </div>
+    </section>
+
+    <!-- TABLA DE COLUMNAS SOLICITADAS: N° (Conteo), Nombre, Unidad, Cargo, Femenino/Masculino, Firma -->
+    <div class="table-container">
+      <table class="attendance-grid">
+        <thead>
+          <tr>
+            <th class="col-num">N°</th>
+            <th class="col-nombre">Nombre</th>
+            <th class="col-unidad">Unidad</th>
+            <th class="col-cargo">Cargo</th>
+            <th class="col-sexo">Femenino / Masculino</th>
+            <th class="col-firma">Firma</th>
+          </tr>
+        </thead>
+        <tbody id="attendanceRows">
+          <tr>
+            <td colspan="6" style="text-align:center;padding:28px;color:var(--gray-muted);">
+              Cargando lista de asistencia completa...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- RESUMEN / PIE CON CONTEO DE FILAS -->
+    <footer class="summary-footer">
+      <div>
+        <span>Fecha y Hora de Emisión del Reporte: <strong id="printedDateTime">--</strong></span>
+      </div>
+      <div>
+        <span class="summary-badge" id="bottomCountBadge">Conteo Total: 0 filas registradas</span>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const eventoId = params.get('evento_id') || '';
+    const unidad = params.get('unidad') || '';
+    const procesoIso = params.get('proceso_iso') || '';
+    const fecha = params.get('fecha') || '';
+    const q = params.get('q') || '';
+    const token = params.get('token') || '';
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    async function loadReportData() {
+      // Registrar hora de impresión
+      const now = new Date();
+      document.getElementById('printedDateTime').textContent = now.toLocaleString('es-NI', {
+        dateStyle: 'long',
+        timeStyle: 'medium',
+      });
+
+      // 1. Cargar Configuración de Logos e Identidad
+      try {
+        const cfgRes = await fetch('/api/config');
+        const cfg = await cfgRes.json();
+        if (cfg.titulo_header) {
+          document.getElementById('instTitle').textContent = cfg.titulo_header.toUpperCase();
+        }
+        if (cfg.logo_izquierdo) {
+          document.getElementById('leftLogoImg').src = cfg.logo_izquierdo;
+        }
+        if (cfg.logo_derecho) {
+          document.getElementById('rightLogoImg').src = cfg.logo_derecho;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      // 2. Si viene filtrado por un evento específico, cargar metadatos del evento
+      if (eventoId || token) {
+        try {
+          const evRes = await fetch('/api/eventos');
+          const evData = await evRes.json();
+          const target = (evData.eventos || []).find(
+            (e) => e.id === eventoId || e.token === token || e.token === eventoId
+          );
+          if (target) {
+            document.getElementById('bannerTema').textContent = target.tema;
+            document.getElementById('bannerFecha').textContent = `${target.fecha} — ${target.hora}`;
+            document.getElementById('bannerDireccion').textContent = target.direccion_organiza || 'Institucional';
+            document.getElementById('bannerLugarTipo').textContent = `${target.lugar || 'Institucional'} (${target.tipo || 'Presencial'})`;
+            document.getElementById('bannerProceso').textContent = target.proceso_iso || 'General';
+            document.getElementById('bannerPlan').textContent = target.planificacion || 'General';
+            document.getElementById('filterSummaryPill').textContent = `Reunión: ${target.tema}`;
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        const filterPills = [];
+        if (unidad) filterPills.push(`Unidad: ${unidad}`);
+        if (procesoIso) filterPills.push(`ISO: ${procesoIso}`);
+        if (fecha) filterPills.push(`Fecha: ${fecha}`);
+        if (q) filterPills.push(`Búsqueda: "${q}"`);
+        document.getElementById('filterSummaryPill').textContent =
+          filterPills.length > 0 ? `Filtros: ${filterPills.join(' | ')}` : 'Lista Completa General';
+
+        if (unidad) document.getElementById('bannerDireccion').textContent = unidad;
+        if (procesoIso) document.getElementById('bannerProceso').textContent = procesoIso;
+        if (fecha) document.getElementById('bannerFecha').textContent = fecha;
+      }
+
+      // 3. Cargar Asistencias según los filtros
+      try {
+        const queryParams = new URLSearchParams();
+        if (eventoId) queryParams.set('evento_id', eventoId);
+        if (token) queryParams.set('token', token);
+        if (unidad) queryParams.set('unidad', unidad);
+        if (procesoIso) queryParams.set('proceso_iso', procesoIso);
+        if (fecha) queryParams.set('fecha', fecha);
+        if (q) queryParams.set('q', q);
+
+        const res = await fetch(`/api/asistencias?${queryParams.toString()}`);
+        const data = await res.json();
+        const list = (data.asistencias || []).slice().reverse();
+
+        document.getElementById('bannerTotalFilas').textContent = `${list.length} participante(s)`;
+        document.getElementById('bottomCountBadge').textContent = `Conteo Total: ${list.length} filas registradas`;
+
+        const tbody = document.getElementById('attendanceRows');
+        if (list.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" style="text-align:center;padding:32px;color:var(--gray-muted);">
+                No se encontraron participantes registrados para el filtro seleccionado.
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        tbody.innerHTML = list
+          .map(
+            (row, index) => `
+            <tr>
+              <td class="col-num">${index + 1}</td>
+              <td class="col-nombre">${escapeHtml(row.nombre)}</td>
+              <td class="col-unidad">${escapeHtml(row.unidad)}</td>
+              <td class="col-cargo">${escapeHtml(row.cargo || '-')}</td>
+              <td class="col-sexo">${escapeHtml(row.sexo || '-')}</td>
+              <td class="col-firma">
+                ${
+                  row.firma_base64
+                    ? `<img src="${row.firma_base64}" alt="Firma de ${escapeHtml(row.nombre)}" />`
+                    : '<span style="color:var(--gray-muted);font-size:0.75rem;">Sin firma</span>'
+                }
+              </td>
+            </tr>
+          `
+          )
+          .join('');
+      } catch (err) {
+        console.error(err);
+        document.getElementById('attendanceRows').innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align:center;padding:24px;color:#dc2626;">
+              Error al cargar los datos del reporte. Verifique la conexión con el servidor.
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    loadReportData();
+  </script>
+</body>
+</html>

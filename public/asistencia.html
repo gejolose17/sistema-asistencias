@@ -5,6 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
   <title>ASISTENCIA DE PARTICIPACIÓN</title>
   <style>
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Book.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Demi.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Franklin Gothic';
+      src: url('/fonts/FranklinGothic-Heavy.ttf') format('truetype');
+      font-weight: 800;
+      font-weight: 900;
+      font-style: normal;
+      font-display: swap;
+    }
+
     :root {
       --primary: #0099a8;
       --primary-dark: #007784;
@@ -27,9 +57,10 @@
     }
 
     body {
-      font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      font-family: 'Franklin Gothic', 'Franklin Gothic Medium', 'ITC Franklin Gothic', Arial, sans-serif;
       background: linear-gradient(145deg, #1f2937 0%, #111827 65%, #004d56 100%);
-      color: var(--dark-gray);
+      color: var(--dark-gray-2);
+      font-weight: 400;
       min-height: 100vh;
       min-height: 100dvh;
       padding: clamp(8px, 2.5vw, 24px);
@@ -37,6 +68,16 @@
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
+    }
+
+    h1, h2, h3, h4, h5, h6, strong, b, .inst-title, .status-banner-title {
+      font-family: 'Franklin Gothic', 'Franklin Gothic Medium', 'ITC Franklin Gothic', Arial, sans-serif;
+      font-weight: 700;
+      color: var(--dark-gray);
+    }
+
+    p, span, div, input, select, textarea, button, label {
+      font-family: 'Franklin Gothic', 'Franklin Gothic Medium', 'ITC Franklin Gothic', Arial, sans-serif;
     }
 
     .form-shell {
