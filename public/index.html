@@ -108,7 +108,7 @@
     }
 
     .sidebar-logo {
-      max-height: 58px;
+      max-height: 78px;
       max-width: 100%;
       object-fit: contain;
       margin-bottom: 10px;
@@ -807,6 +807,35 @@
       padding: 2px 5px;
     }
 
+    .db-view-btn {
+      background: transparent;
+      color: var(--slate);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: all 0.16s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .db-view-btn:hover {
+      background: rgba(0, 153, 168, 0.12);
+      color: var(--dark-gray);
+    }
+
+    .db-view-btn.active {
+      background: var(--primary) !important;
+      color: var(--white) !important;
+      box-shadow: 0 2px 8px rgba(0, 153, 168, 0.35);
+    }
+
+    .db-view-btn.active span {
+      background: rgba(255, 255, 255, 0.28) !important;
+      color: #fff !important;
+    }
+
     /* ── PESTAÑA 4: CONFIGURACIÓN DE CATÁLOGOS DESPLEGABLES ── */
     .config-layout {
       display: grid;
@@ -1214,10 +1243,18 @@
     <section class="tab-pane" id="tab-basedatos">
       <div class="panel-card">
         <div class="panel-header">
-          <h2>🗄️ Base de Datos Centralizada de Asistencias</h2>
+          <div>
+            <h2>🗄️ Base de Datos Centralizada de Asistencias</h2>
+            <div style="font-size:0.8rem;color:var(--muted);margin-top:3px;">
+              Consulte y filtre los datos captados por <b>Listas / Agendas</b> o en <b>Detalle individual</b> de participantes.
+            </div>
+          </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
             <button type="button" class="btn-primary" style="padding:8px 16px;font-size:0.84rem;font-weight:700;" onclick="descargarListaCompletaPDF()">
-              📄 Descargar lista completa
+              📄 Descargar lista completa (PDF)
+            </button>
+            <button type="button" class="btn-primary" style="padding:8px 16px;font-size:0.84rem;background:#15803d;border-color:#166534;font-weight:700;" onclick="exportFilteredExcel()">
+              📊 Exportar a Excel (.xlsx)
             </button>
             <button type="button" class="btn-outline" style="padding:8px 16px;font-size:0.84rem;" onclick="exportFilteredCSV()">
               ⬇️ Exportar CSV
@@ -1225,65 +1262,160 @@
           </div>
         </div>
         <div class="panel-body">
-          <div class="filter-bar">
-            <div>
-              <label class="lbl">Buscar (Nombre, Tema, Cargo)</label>
-              <input
-                type="text"
-                id="dbFilterSearch"
-                class="inp"
-                placeholder="Buscar participante o reunión..."
-                oninput="loadCentralDatabase()"
-              />
+          <!-- BARRA SELECTORA DE VISTA: LISTAS / AGENDAS vs DETALLE DE PARTICIPANTES -->
+          <div class="db-view-switch-bar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;border-bottom:2px solid #e2e8f0;padding-bottom:12px;flex-wrap:wrap;">
+            <div style="display:inline-flex;background:#f1f5f9;padding:4px;border-radius:10px;border:1.5px solid #cbd5e1;gap:6px;">
+              <button
+                type="button"
+                id="dbBtnViewAgendas"
+                class="db-view-btn"
+                onclick="switchDbView('agendas')"
+                style="padding:8px 18px;font-size:0.86rem;"
+              >
+                📋 Ver por Listas / Agendas <span id="badgeDbAgendasCount" style="padding:2px 7px;border-radius:999px;font-size:0.72rem;background:#0099a8;color:#fff;">0</span>
+              </button>
+              <button
+                type="button"
+                id="dbBtnViewDetalle"
+                class="db-view-btn active"
+                onclick="switchDbView('detalle')"
+                style="padding:8px 18px;font-size:0.86rem;"
+              >
+                📝 Ver Detalle de Asistencias (Captados) <span id="badgeDbDetalleCount" style="padding:2px 7px;border-radius:999px;font-size:0.72rem;background:#111827;color:#fff;">0</span>
+              </button>
             </div>
-            <div>
-              <label class="lbl">Reunión / Lista</label>
-              <select id="dbFilterEvento" class="sel" onchange="loadCentralDatabase()">
-                <option value="">-- Todas las Listas --</option>
-              </select>
-            </div>
-            <div>
-              <label class="lbl">Unidad</label>
-              <select id="dbFilterUnidad" class="sel" onchange="loadCentralDatabase()">
-                <option value="">-- Todas las Unidades --</option>
-              </select>
-            </div>
-            <div>
-              <label class="lbl">Proceso ISO</label>
-              <select id="dbFilterProceso" class="sel" onchange="loadCentralDatabase()">
-                <option value="">-- Todos los Procesos --</option>
-              </select>
-            </div>
-            <div>
-              <label class="lbl">Fecha</label>
-              <input type="date" id="dbFilterFecha" class="inp" onchange="loadCentralDatabase()" />
-            </div>
-            <div>
-              <button type="button" class="btn-outline" onclick="resetDbFilters()">Limpiar</button>
+            <div id="dbViewActiveHint" style="font-size:0.8rem;color:var(--muted);font-weight:600;">
+              Visualizando: <b>Detalle individual de participantes captados</b>
             </div>
           </div>
 
-          <div class="db-table-wrap">
-            <table class="db-table">
-              <thead>
-                <tr>
-                  <th>Folio</th>
-                  <th>Fecha / Hora</th>
-                  <th>Tema de Reunión</th>
-                  <th>Dirección / Proceso ISO</th>
-                  <th>Nombre del Participante</th>
-                  <th>Unidad</th>
-                  <th>Cargo / Sexo</th>
-                  <th>Firma Digital</th>
-                  <th>Acción</th>
-                </tr>
-              </thead>
-              <tbody id="centralDbTableBody">
-                <tr>
-                  <td colspan="9" style="text-align:center;padding:28px;">Cargando base de datos...</td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- ── VISTA 1: LISTAS Y AGENDAS DE REUNIONES ── -->
+          <div id="dbSectionAgendas" style="display:none;">
+            <div class="filter-bar">
+              <div>
+                <label class="lbl">Buscar Agenda (Tema, Dirección, Lugar)</label>
+                <input
+                  type="text"
+                  id="dbAgendasSearch"
+                  class="inp"
+                  placeholder="Buscar agenda o reunión..."
+                  oninput="renderAgendasDatabase()"
+                />
+              </div>
+              <div>
+                <label class="lbl">Dirección que Organiza</label>
+                <select id="dbAgendasUnidad" class="sel" onchange="renderAgendasDatabase()">
+                  <option value="">-- Todas las Direcciones --</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">Proceso ISO</label>
+                <select id="dbAgendasProceso" class="sel" onchange="renderAgendasDatabase()">
+                  <option value="">-- Todos los Procesos --</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">Fecha</label>
+                <input type="date" id="dbAgendasFecha" class="inp" onchange="renderAgendasDatabase()" />
+              </div>
+              <div>
+                <label class="lbl">Estado</label>
+                <select id="dbAgendasEstado" class="sel" onchange="renderAgendasDatabase()">
+                  <option value="">-- Todos los Estados --</option>
+                  <option value="ACTIVA">🟢 Activa</option>
+                  <option value="DESACTIVADA">🔒 Desactivada (+30 min)</option>
+                </select>
+              </div>
+              <div>
+                <button type="button" class="btn-outline" onclick="resetAgendasFilters()">Limpiar</button>
+              </div>
+            </div>
+
+            <div class="db-table-wrap">
+              <table class="db-table">
+                <thead>
+                  <tr>
+                    <th style="width:50px;">N°</th>
+                    <th>Fecha / Hora</th>
+                    <th>Tema de Reunión / Agenda</th>
+                    <th>Dirección Organizadora / Proceso</th>
+                    <th>Unidades Invitadas</th>
+                    <th style="text-align:center;">Participantes</th>
+                    <th style="text-align:center;">Estado</th>
+                    <th style="text-align:center;width:240px;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="dbAgendasTableBody">
+                  <tr>
+                    <td colspan="8" style="text-align:center;padding:28px;">Cargando agendas y listas...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ── VISTA 2: DETALLE INDIVIDUAL DE PARTICIPANTES (CAPTADOS) ── -->
+          <div id="dbSectionDetalle">
+            <div class="filter-bar">
+              <div>
+                <label class="lbl">Buscar (Nombre, Tema, Cargo)</label>
+                <input
+                  type="text"
+                  id="dbFilterSearch"
+                  class="inp"
+                  placeholder="Buscar participante o reunión..."
+                  oninput="loadCentralDatabase()"
+                />
+              </div>
+              <div>
+                <label class="lbl">Reunión / Lista</label>
+                <select id="dbFilterEvento" class="sel" onchange="loadCentralDatabase()">
+                  <option value="">-- Todas las Listas --</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">Unidad</label>
+                <select id="dbFilterUnidad" class="sel" onchange="loadCentralDatabase()">
+                  <option value="">-- Todas las Unidades --</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">Proceso ISO</label>
+                <select id="dbFilterProceso" class="sel" onchange="loadCentralDatabase()">
+                  <option value="">-- Todos los Procesos --</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">Fecha</label>
+                <input type="date" id="dbFilterFecha" class="inp" onchange="loadCentralDatabase()" />
+              </div>
+              <div>
+                <button type="button" class="btn-outline" onclick="resetDbFilters()">Limpiar</button>
+              </div>
+            </div>
+
+            <div class="db-table-wrap">
+              <table class="db-table">
+                <thead>
+                  <tr>
+                    <th>Folio</th>
+                    <th>Fecha / Hora</th>
+                    <th>Tema de Reunión</th>
+                    <th>Dirección / Proceso ISO</th>
+                    <th>Nombre del Participante</th>
+                    <th>Unidad</th>
+                    <th>Cargo / Sexo</th>
+                    <th>Firma Digital</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="centralDbTableBody">
+                  <tr>
+                    <td colspan="9" style="text-align:center;padding:28px;">Cargando base de datos...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -1385,9 +1517,9 @@
               </p>
 
               <!-- Vista previa del Header de las Listas de Asistencia -->
-              <div style="display:grid;grid-template-columns:120px 1fr 120px;align-items:center;gap:12px;padding:14px;border:2px solid var(--primary);border-radius:12px;margin-bottom:20px;background:#fff;">
+              <div style="display:grid;grid-template-columns:160px 1fr 120px;align-items:center;gap:12px;padding:14px;border:2px solid var(--primary);border-radius:12px;margin-bottom:20px;background:#fff;">
                 <div style="text-align:center;">
-                  <img id="previewLeftLogo" src="/image/uamh.png" alt="Logo Izq" style="max-height:56px;max-width:100%;object-fit:contain;" />
+                  <img id="previewLeftLogo" src="/image/uamh.png" alt="Logo Izq" style="max-height:80px;max-width:100%;object-fit:contain;" />
                 </div>
                 <div style="text-align:center;">
                   <strong id="previewHeaderTitle" style="font-size:1.1rem;text-transform:uppercase;color:#52525b;">ASISTENCIA DE PARTICIPACIÓN</strong>
@@ -1710,6 +1842,7 @@
     let selectedInspectorEventId = '';
     let activeQrModalEvent = null;
     let pickingLogoSide = null;
+    let currentDbView = 'detalle';
 
     function loadLocalBackup() {
       try {
@@ -1722,6 +1855,7 @@
             purgedAsistenciaIds: [],
             lastCreatedEventId: '',
             activeTab: 'programar',
+            dbViewMode: 'detalle',
           };
         }
         const parsed = JSON.parse(raw);
@@ -1732,6 +1866,7 @@
           purgedAsistenciaIds: Array.isArray(parsed.purgedAsistenciaIds) ? parsed.purgedAsistenciaIds : [],
           lastCreatedEventId: parsed.lastCreatedEventId || '',
           activeTab: parsed.activeTab || 'programar',
+          dbViewMode: parsed.dbViewMode === 'agendas' ? 'agendas' : 'detalle',
         };
       } catch (_) {
         return {
@@ -1741,6 +1876,7 @@
           purgedAsistenciaIds: [],
           lastCreatedEventId: '',
           activeTab: 'programar',
+          dbViewMode: 'detalle',
         };
       }
     }
@@ -1798,6 +1934,8 @@
     function applyEventosState(eventosList) {
       allEvents = Array.isArray(eventosList) ? eventosList : [];
       document.getElementById('badgeEventosCount').textContent = allEvents.length;
+      const badgeDbAg = document.getElementById('badgeDbAgendasCount');
+      if (badgeDbAg) badgeDbAg.textContent = allEvents.length;
 
       // Poblar selector de eventos en Base de Datos
       const evFilter = document.getElementById('dbFilterEvento');
@@ -1813,6 +1951,9 @@
       renderCalendar();
       renderCalendarInspector();
       refreshNewlyCreatedPanel();
+      if (typeof renderAgendasDatabase === 'function') {
+        renderAgendasDatabase();
+      }
 
       if (activeQrModalEvent) {
         const refreshed = allEvents.find((e) => e.id === activeQrModalEvent.id);
@@ -1896,7 +2037,8 @@
         renderCalendar();
         renderCalendarInspector();
       } else if (tabId === 'basedatos') {
-        loadCentralDatabase();
+        const bState = loadLocalBackup();
+        switchDbView(bState.dbViewMode || currentDbView || 'detalle');
       } else if (tabId === 'papelera') {
         loadPapelera();
       }
@@ -2056,21 +2198,45 @@
     function populateDbFilterDropdowns() {
       const unidades = catalogosGrouped.UNIDAD || [];
       const uSel = document.getElementById('dbFilterUnidad');
-      const prevU = uSel.value;
-      uSel.innerHTML = '<option value="">-- Todas las Unidades --</option>';
-      for (const u of unidades) {
-        uSel.innerHTML += `<option value="${escapeHtml(u.nombre)}">${escapeHtml(u.nombre)}</option>`;
+      if (uSel) {
+        const prevU = uSel.value;
+        uSel.innerHTML = '<option value="">-- Todas las Unidades --</option>';
+        for (const u of unidades) {
+          uSel.innerHTML += `<option value="${escapeHtml(u.nombre)}">${escapeHtml(u.nombre)}</option>`;
+        }
+        uSel.value = prevU;
       }
-      uSel.value = prevU;
+
+      const uAgendasSel = document.getElementById('dbAgendasUnidad');
+      if (uAgendasSel) {
+        const prevUA = uAgendasSel.value;
+        uAgendasSel.innerHTML = '<option value="">-- Todas las Direcciones --</option>';
+        for (const u of unidades) {
+          uAgendasSel.innerHTML += `<option value="${escapeHtml(u.nombre)}">${escapeHtml(u.nombre)}</option>`;
+        }
+        uAgendasSel.value = prevUA;
+      }
 
       const procesos = catalogosGrouped.PROCESO_ISO || [];
       const pSel = document.getElementById('dbFilterProceso');
-      const prevP = pSel.value;
-      pSel.innerHTML = '<option value="">-- Todos los Procesos --</option>';
-      for (const p of procesos) {
-        pSel.innerHTML += `<option value="${escapeHtml(p.nombre)}">${escapeHtml(p.nombre)}</option>`;
+      if (pSel) {
+        const prevP = pSel.value;
+        pSel.innerHTML = '<option value="">-- Todos los Procesos --</option>';
+        for (const p of procesos) {
+          pSel.innerHTML += `<option value="${escapeHtml(p.nombre)}">${escapeHtml(p.nombre)}</option>`;
+        }
+        pSel.value = prevP;
       }
-      pSel.value = prevP;
+
+      const pAgendasSel = document.getElementById('dbAgendasProceso');
+      if (pAgendasSel) {
+        const prevPA = pAgendasSel.value;
+        pAgendasSel.innerHTML = '<option value="">-- Todos los Procesos --</option>';
+        for (const p of procesos) {
+          pAgendasSel.innerHTML += `<option value="${escapeHtml(p.nombre)}">${escapeHtml(p.nombre)}</option>`;
+        }
+        pAgendasSel.value = prevPA;
+      }
     }
 
     // ── Pestaña 1: Crear Reunión ──
@@ -2465,6 +2631,9 @@
               <a href="/reporte-pdf?evento_id=${encodeURIComponent(ev.id)}" target="_blank" class="btn-primary" style="padding:7px 11px;font-size:0.78rem;" title="Reporte horizontal oficial con conteo y firmas">
                 📄 Lista Horizontal PDF
               </a>
+              <a href="/api/export/excel?evento_id=${encodeURIComponent(ev.id)}" class="btn-outline" style="padding:7px 11px;font-size:0.78rem;color:#15803d;border-color:#86efac;background:#f0fdf4;" title="Descargar asistentes de esta lista en Excel (.xlsx)">
+                📊 Excel
+              </a>
               <button type="button" class="btn-outline" style="padding:7px 11px;font-size:0.78rem;color:#dc2626;" onclick="deleteEvento('${ev.id}')">
                 🗑️
               </button>
@@ -2583,6 +2752,220 @@
       return `${String(hh).padStart(2, '0')}:${mm} ${suffix}`;
     }
 
+    function switchDbView(viewName) {
+      currentDbView = viewName === 'agendas' ? 'agendas' : 'detalle';
+      saveLocalBackup({ dbViewMode: currentDbView });
+
+      const btnAgendas = document.getElementById('dbBtnViewAgendas');
+      const btnDetalle = document.getElementById('dbBtnViewDetalle');
+      const secAgendas = document.getElementById('dbSectionAgendas');
+      const secDetalle = document.getElementById('dbSectionDetalle');
+      const hint = document.getElementById('dbViewActiveHint');
+
+      if (currentDbView === 'agendas') {
+        if (btnAgendas) btnAgendas.classList.add('active');
+        if (btnDetalle) btnDetalle.classList.remove('active');
+        if (secAgendas) secAgendas.style.display = 'block';
+        if (secDetalle) secDetalle.style.display = 'none';
+        if (hint) hint.innerHTML = 'Visualizando: <b>Listas / Agendas de reuniones programadas</b>';
+        renderAgendasDatabase();
+      } else {
+        if (btnAgendas) btnAgendas.classList.remove('active');
+        if (btnDetalle) btnDetalle.classList.add('active');
+        if (secAgendas) secAgendas.style.display = 'none';
+        if (secDetalle) secDetalle.style.display = 'block';
+        if (hint) hint.innerHTML = 'Visualizando: <b>Detalle individual de participantes captados</b>';
+        loadCentralDatabase();
+      }
+    }
+
+    function viewEventAttendeesFromDb(eventoId) {
+      const sInp = document.getElementById('dbFilterSearch');
+      const uSel = document.getElementById('dbFilterUnidad');
+      const pSel = document.getElementById('dbFilterProceso');
+      const fInp = document.getElementById('dbFilterFecha');
+      const evSel = document.getElementById('dbFilterEvento');
+      if (sInp) sInp.value = '';
+      if (uSel) uSel.value = '';
+      if (pSel) pSel.value = '';
+      if (fInp) fInp.value = '';
+      if (evSel) evSel.value = eventoId;
+
+      switchDbView('detalle');
+      showToast('Mostrando participantes de la lista / agenda seleccionada.');
+    }
+
+    function resetAgendasFilters() {
+      const sInp = document.getElementById('dbAgendasSearch');
+      const uSel = document.getElementById('dbAgendasUnidad');
+      const pSel = document.getElementById('dbAgendasProceso');
+      const fInp = document.getElementById('dbAgendasFecha');
+      const eSel = document.getElementById('dbAgendasEstado');
+      if (sInp) sInp.value = '';
+      if (uSel) uSel.value = '';
+      if (pSel) pSel.value = '';
+      if (fInp) fInp.value = '';
+      if (eSel) eSel.value = '';
+      renderAgendasDatabase();
+    }
+
+    function renderAgendasDatabase() {
+      const tbody = document.getElementById('dbAgendasTableBody');
+      if (!tbody) return;
+
+      const q = (document.getElementById('dbAgendasSearch')?.value || '').trim().toLowerCase();
+      const unidad = document.getElementById('dbAgendasUnidad')?.value || '';
+      const procesoIso = document.getElementById('dbAgendasProceso')?.value || '';
+      const fecha = document.getElementById('dbAgendasFecha')?.value || '';
+      const estado = document.getElementById('dbAgendasEstado')?.value || '';
+
+      // Calcular desglose de participantes desde el respaldo sincronizado
+      const b = loadLocalBackup();
+      const statsMap = {};
+      for (const a of b.allAsistenciasRaw || []) {
+        if (Number(a.eliminado) === 1) continue;
+        if (!statsMap[a.evento_id]) {
+          statsMap[a.evento_id] = { total: 0, varon: 0, mujer: 0, names: [], units: new Set() };
+        }
+        statsMap[a.evento_id].total++;
+        const sx = normalizeSexoLabel(a.sexo);
+        if (sx === 'Varón') statsMap[a.evento_id].varon++;
+        else if (sx === 'Mujer') statsMap[a.evento_id].mujer++;
+        if (a.nombre) statsMap[a.evento_id].names.push(String(a.nombre).toLowerCase());
+        if (a.unidad) statsMap[a.evento_id].units.add(String(a.unidad).trim().toLowerCase());
+      }
+
+      const filtered = (allEvents || []).filter((ev) => {
+        if (procesoIso && ev.proceso_iso !== procesoIso) return false;
+        if (fecha && ev.fecha !== fecha) return false;
+        if (estado === 'ACTIVA' && !ev.activa) return false;
+        if (estado === 'DESACTIVADA' && ev.activa) return false;
+        if (unidad) {
+          const uLow = unidad.trim().toLowerCase();
+          const dirMatch = String(ev.direccion_organiza || '').trim().toLowerCase() === uLow;
+          const invMatch = (ev.unidades_invitadas_lista || []).some((u) => String(u).trim().toLowerCase() === uLow);
+          const asisMatch = statsMap[ev.id] && statsMap[ev.id].units.has(uLow);
+          if (!dirMatch && !invMatch && !asisMatch) return false;
+        }
+        if (q) {
+          const metaMatch =
+            String(ev.tema || '').toLowerCase().includes(q) ||
+            String(ev.direccion_organiza || '').toLowerCase().includes(q) ||
+            String(ev.lugar || '').toLowerCase().includes(q) ||
+            String(ev.proceso_iso || '').toLowerCase().includes(q) ||
+            String(ev.planificacion || '').toLowerCase().includes(q);
+          const partMatch = statsMap[ev.id] && statsMap[ev.id].names.some((n) => n.includes(q));
+          if (!metaMatch && !partMatch) return false;
+        }
+        return true;
+      });
+
+      const badgeDbAg = document.getElementById('badgeDbAgendasCount');
+      if (badgeDbAg) badgeDbAg.textContent = filtered.length;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" style="text-align:center;padding:30px;color:var(--muted);">
+              No hay listas ni agendas para los filtros seleccionados.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered
+        .map((ev, idx) => {
+          const st = statsMap[ev.id] || { total: ev.total_asistencias || 0, varon: 0, mujer: 0 };
+          const totalPart = Math.max(ev.total_asistencias || 0, st.total || 0);
+          const invList = ev.unidades_invitadas_lista || [];
+          const invSummary =
+            invList.length === 0
+              ? 'General'
+              : invList.length <= 2
+                ? invList.join(', ')
+                : `${invList.slice(0, 2).join(', ')} (+${invList.length - 2} más)`;
+
+          return `
+            <tr>
+              <td style="text-align:center;"><strong>${idx + 1}</strong></td>
+              <td>
+                <strong>${escapeHtml(ev.fecha)}</strong><br/>
+                <small style="color:var(--muted)">${escapeHtml(formatHoraAmPmUi(ev.hora))} (${escapeHtml(ev.tipo || 'Presencial')})</small>
+              </td>
+              <td>
+                <strong style="color:var(--dark-gray);">${escapeHtml(ev.tema)}</strong><br/>
+                <small style="color:var(--muted)">📍 ${escapeHtml(ev.lugar || '-')}</small>
+              </td>
+              <td>
+                <div style="font-size:0.8rem;font-weight:700;">${escapeHtml(ev.direccion_organiza || '-')}</div>
+                <small style="color:var(--primary-dark)">${escapeHtml(ev.proceso_iso || '-')}</small>
+              </td>
+              <td>
+                <span style="font-size:0.78rem;color:var(--slate);" title="${escapeHtml(invList.join(', '))}">
+                  ${escapeHtml(invSummary)}
+                </span>
+              </td>
+              <td style="text-align:center;">
+                <span class="state-pill active" style="font-size:0.8rem;padding:4px 10px;">
+                  👥 ${totalPart}
+                </span>
+                ${
+                  totalPart > 0
+                    ? `<div style="font-size:0.72rem;color:var(--muted);margin-top:3px;">♀ ${st.mujer} · ♂ ${st.varon}</div>`
+                    : ''
+                }
+              </td>
+              <td style="text-align:center;">
+                <span class="state-pill ${ev.activa ? 'active' : 'expired'}">
+                  ${ev.activa ? '✓ Activa' : '🔒 Cerrada'}
+                </span>
+              </td>
+              <td style="text-align:center;">
+                <div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;">
+                  <button
+                    type="button"
+                    class="btn-primary"
+                    style="padding:5px 9px;font-size:0.74rem;"
+                    onclick="viewEventAttendeesFromDb('${ev.id}')"
+                    title="Ver participantes captados de esta agenda"
+                  >
+                    👁️ Detalle
+                  </button>
+                  <a
+                    href="/reporte-pdf?evento_id=${encodeURIComponent(ev.id)}"
+                    target="_blank"
+                    class="btn-outline"
+                    style="padding:5px 8px;font-size:0.74rem;"
+                    title="Abrir reporte PDF de esta lista"
+                  >
+                    📄 PDF
+                  </a>
+                  <a
+                    href="/api/export/excel?evento_id=${encodeURIComponent(ev.id)}"
+                    class="btn-outline"
+                    style="padding:5px 8px;font-size:0.74rem;color:#15803d;border-color:#86efac;background:#f0fdf4;"
+                    title="Descargar asistentes de esta lista en Excel"
+                  >
+                    📊 Excel
+                  </a>
+                  <button
+                    type="button"
+                    class="btn-outline"
+                    style="padding:5px 8px;font-size:0.74rem;"
+                    onclick="openQrModal('${ev.id}')"
+                    title="Ver QR y vínculo de esta lista"
+                  >
+                    📱
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        })
+        .join('');
+    }
+
     async function loadCentralDatabase() {
       const q = document.getElementById('dbFilterSearch').value.trim();
       const eventoId = document.getElementById('dbFilterEvento').value;
@@ -2604,6 +2987,8 @@
       if (!q && !eventoId && !unidad && !procesoIso && !fecha) {
         document.getElementById('badgeAsistenciasCount').textContent = list.length;
       }
+      const badgeDet = document.getElementById('badgeDbDetalleCount');
+      if (badgeDet) badgeDet.textContent = list.length;
 
       const tbody = document.getElementById('centralDbTableBody');
       if (list.length === 0) {
@@ -2666,29 +3051,52 @@
       loadCentralDatabase();
     }
 
-    function descargarListaCompletaPDF() {
-      const q = document.getElementById('dbFilterSearch') ? document.getElementById('dbFilterSearch').value.trim() : '';
-      const eventoId = document.getElementById('dbFilterEvento') ? document.getElementById('dbFilterEvento').value : '';
-      const unidad = document.getElementById('dbFilterUnidad') ? document.getElementById('dbFilterUnidad').value : '';
-      const procesoIso = document.getElementById('dbFilterProceso') ? document.getElementById('dbFilterProceso').value : '';
-      const fecha = document.getElementById('dbFilterFecha') ? document.getElementById('dbFilterFecha').value : '';
-
+    function buildActiveDbExportParams() {
       const params = new URLSearchParams();
-      if (q) params.set('q', q);
-      if (eventoId) params.set('evento_id', eventoId);
-      if (unidad) params.set('unidad', unidad);
-      if (procesoIso) params.set('proceso_iso', procesoIso);
-      if (fecha) params.set('fecha', fecha);
+      if (currentDbView === 'agendas') {
+        params.set('view', 'agendas');
+        const q = document.getElementById('dbAgendasSearch')?.value.trim() || '';
+        const unidad = document.getElementById('dbAgendasUnidad')?.value || '';
+        const procesoIso = document.getElementById('dbAgendasProceso')?.value || '';
+        const fecha = document.getElementById('dbAgendasFecha')?.value || '';
+        const estado = document.getElementById('dbAgendasEstado')?.value || '';
+        if (q) params.set('q', q);
+        if (unidad) params.set('unidad', unidad);
+        if (procesoIso) params.set('proceso_iso', procesoIso);
+        if (fecha) params.set('fecha', fecha);
+        if (estado) params.set('estado', estado);
+      } else {
+        params.set('view', 'detalle');
+        const q = document.getElementById('dbFilterSearch')?.value.trim() || '';
+        const eventoId = document.getElementById('dbFilterEvento')?.value || '';
+        const unidad = document.getElementById('dbFilterUnidad')?.value || '';
+        const procesoIso = document.getElementById('dbFilterProceso')?.value || '';
+        const fecha = document.getElementById('dbFilterFecha')?.value || '';
+        if (q) params.set('q', q);
+        if (eventoId) params.set('evento_id', eventoId);
+        if (unidad) params.set('unidad', unidad);
+        if (procesoIso) params.set('proceso_iso', procesoIso);
+        if (fecha) params.set('fecha', fecha);
+      }
+      return params;
+    }
 
+    function descargarListaCompletaPDF() {
+      const params = buildActiveDbExportParams();
+      params.delete('view');
+      params.delete('estado');
       window.open(`/reporte-pdf?${params.toString()}`, '_blank');
     }
 
+    function exportFilteredExcel() {
+      const params = buildActiveDbExportParams();
+      window.location.href = `/api/export/excel?${params.toString()}`;
+    }
+
     function exportFilteredCSV() {
-      const eventoId = document.getElementById('dbFilterEvento').value;
-      const unidad = document.getElementById('dbFilterUnidad').value;
-      const params = new URLSearchParams();
-      if (eventoId) params.set('evento_id', eventoId);
-      if (unidad) params.set('unidad', unidad);
+      const params = buildActiveDbExportParams();
+      params.delete('view');
+      params.delete('estado');
       window.location.href = `/api/export/csv?${params.toString()}`;
     }
 
@@ -3611,6 +4019,7 @@
     async function initDashboard() {
       setInitialFormDateTime();
       const b = loadLocalBackup();
+      currentDbView = b.dbViewMode || 'detalle';
       if (b.activeTab && tabSectionTitles[b.activeTab]) {
         switchTab(b.activeTab);
       }

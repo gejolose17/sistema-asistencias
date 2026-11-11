@@ -25,6 +25,7 @@ const {
   getNowISO,
 } = require('./lib/db');
 const { generateQRSVG, generateQRMatrix } = require('./lib/qrcode');
+const { buildMultiSheetXlsxBuffer } = require('./lib/excel');
 
 const PORT = Number(process.env.PORT || 3050);
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -1081,6 +1082,10 @@ async function requestHandler(req, res) {
     if (pathname === '/api/export/csv' && method === 'GET') {
       const eventoId = parsedUrl.searchParams.get('evento_id') || '';
       const unidad = parsedUrl.searchParams.get('unidad') || '';
+      const procesoIso = parsedUrl.searchParams.get('proceso_iso') || '';
+      const fecha = parsedUrl.searchParams.get('fecha') || '';
+      const q = (parsedUrl.searchParams.get('q') || '').trim();
+
       let where = ['COALESCE(a.eliminado, 0) = 0', '(e.id IS NULL OR COALESCE(e.eliminado, 0) = 0)'];
       let params = [];
       if (eventoId) {
@@ -1090,6 +1095,19 @@ async function requestHandler(req, res) {
       if (unidad) {
         where.push('a.unidad = ?');
         params.push(unidad);
+      }
+      if (procesoIso) {
+        where.push('e.proceso_iso = ?');
+        params.push(procesoIso);
+      }
+      if (fecha) {
+        where.push('a.fecha = ?');
+        params.push(fecha);
+      }
+      if (q) {
+        where.push('(a.nombre LIKE ? OR a.tema LIKE ? OR a.unidad LIKE ? OR a.cargo LIKE ?)');
+        const like = `%${q}%`;
+        params.push(like, like, like, like);
       }
       const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
       const rowsRaw = db
@@ -1183,7 +1201,7 @@ async function requestHandler(req, res) {
       csvLines.push(['RESUMEN POR SEXO', 'CANTIDAD', 'PORCENTAJE'].map(escapeCSV).join(','));
       csvLines.push(['Varón', varonCount, varonPct].map(escapeCSV).join(','));
       csvLines.push(['Mujer', mujerCount, mujerPct].map(escapeCSV).join(','));
-      csvLines.push(['TOTAL', totalCount, totalPct].map(escapeCSV).join(','));
+      csvLines.push(['Total de Participantes', totalCount, totalPct].map(escapeCSV).join(','));
 
       const csvContent = '\uFEFF' + csvLines.join('\r\n');
       const filename = eventoId
@@ -1194,6 +1212,259 @@ async function requestHandler(req, res) {
         'Content-Disposition': `attachment; filename="${filename}"`,
       });
       res.end(csvContent);
+      return;
+    }
+
+    if ((pathname === '/api/export/excel' || pathname === '/api/export/xlsx') && method === 'GET') {
+      const eventoId = parsedUrl.searchParams.get('evento_id') || '';
+      const unidad = parsedUrl.searchParams.get('unidad') || '';
+      const procesoIso = parsedUrl.searchParams.get('proceso_iso') || '';
+      const fecha = parsedUrl.searchParams.get('fecha') || '';
+      const estado = parsedUrl.searchParams.get('estado') || '';
+      const q = (parsedUrl.searchParams.get('q') || '').trim();
+      const view = parsedUrl.searchParams.get('view') || 'detalle';
+
+      let where = ['COALESCE(a.eliminado, 0) = 0', '(e.id IS NULL OR COALESCE(e.eliminado, 0) = 0)'];
+      let params = [];
+      if (eventoId) {
+        where.push('a.evento_id = ?');
+        params.push(eventoId);
+      }
+      if (unidad) {
+        where.push('a.unidad = ?');
+        params.push(unidad);
+      }
+      if (procesoIso) {
+        where.push('e.proceso_iso = ?');
+        params.push(procesoIso);
+      }
+      if (fecha) {
+        where.push('a.fecha = ?');
+        params.push(fecha);
+      }
+      if (q) {
+        where.push('(a.nombre LIKE ? OR a.tema LIKE ? OR a.unidad LIKE ? OR a.cargo LIKE ?)');
+        const like = `%${q}%`;
+        params.push(like, like, like, like);
+      }
+
+      const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
+      const rowsRaw = db
+        .prepare(`
+          SELECT
+            a.id, a.evento_id, a.fecha, a.hora, a.tema,
+            e.direccion_organiza, e.lugar, e.tipo, e.proceso_iso, e.planificacion,
+            a.unidad, a.cargo, a.sexo, a.nombre, a.registrado_en, a.ip_dispositivo
+          FROM asistencias a
+          LEFT JOIN eventos e ON e.id = a.evento_id
+          ${whereSQL}
+          ORDER BY a.id ASC
+        `)
+        .all(...params);
+
+      // Si hay filtro de estado en vistas de agendas, filtrar asistencias de esos eventos
+      const allActiveEvents = db
+        .prepare('SELECT * FROM eventos WHERE COALESCE(eliminado, 0) = 0 ORDER BY fecha DESC, hora DESC')
+        .all();
+
+      const eventStatsMap = {};
+      const allActiveAsis = db
+        .prepare('SELECT evento_id, sexo, unidad, nombre FROM asistencias WHERE COALESCE(eliminado, 0) = 0')
+        .all();
+      for (const a of allActiveAsis) {
+        if (!eventStatsMap[a.evento_id]) {
+          eventStatsMap[a.evento_id] = { total: 0, varon: 0, mujer: 0, units: new Set(), names: [] };
+        }
+        eventStatsMap[a.evento_id].total++;
+        const sx = normalizeSexo(a.sexo);
+        if (sx === 'Varón') eventStatsMap[a.evento_id].varon++;
+        else if (sx === 'Mujer') eventStatsMap[a.evento_id].mujer++;
+        if (a.unidad) eventStatsMap[a.evento_id].units.add(String(a.unidad).trim().toLowerCase());
+        if (a.nombre) eventStatsMap[a.evento_id].names.push(String(a.nombre).trim().toLowerCase());
+      }
+
+      const filteredEvents = allActiveEvents.filter((ev) => {
+        if (eventoId && ev.id !== eventoId) return false;
+        if (procesoIso && ev.proceso_iso !== procesoIso) return false;
+        if (fecha && ev.fecha !== fecha) return false;
+        const st = computeEventStatus(ev);
+        if (estado === 'ACTIVA' && !st.activa) return false;
+        if (estado === 'DESACTIVADA' && st.activa) return false;
+        if (unidad) {
+          const uLow = unidad.trim().toLowerCase();
+          const dirMatch = String(ev.direccion_organiza || '').trim().toLowerCase() === uLow;
+          const invMatch = parseUnidadesInvitadas(ev.unidades_invitadas).some((u) => u.trim().toLowerCase() === uLow);
+          const asisMatch = eventStatsMap[ev.id] && eventStatsMap[ev.id].units.has(uLow);
+          if (!dirMatch && !invMatch && !asisMatch) return false;
+        }
+        if (q) {
+          const qLow = q.toLowerCase();
+          const metaMatch =
+            String(ev.tema || '').toLowerCase().includes(qLow) ||
+            String(ev.direccion_organiza || '').toLowerCase().includes(qLow) ||
+            String(ev.lugar || '').toLowerCase().includes(qLow) ||
+            String(ev.proceso_iso || '').toLowerCase().includes(qLow);
+          const nameMatch = eventStatsMap[ev.id] && eventStatsMap[ev.id].names.some((n) => n.includes(qLow));
+          if (!metaMatch && !nameMatch) return false;
+        }
+        return true;
+      });
+
+      const allowedEventIds = estado ? new Set(filteredEvents.map((e) => e.id)) : null;
+      const rowsFilteredByState = allowedEventIds
+        ? rowsRaw.filter((r) => allowedEventIds.has(r.evento_id))
+        : rowsRaw;
+
+      const normU = (s) => String(s || '').trim().toLowerCase();
+      const unitCounts = {};
+      for (const r of rowsFilteredByState) {
+        const k = normU(r.unidad);
+        unitCounts[k] = (unitCounts[k] || 0) + 1;
+      }
+      const rows = rowsFilteredByState.slice().sort((a, b) => {
+        const aIsOrg = a.direccion_organiza && normU(a.unidad) === normU(a.direccion_organiza);
+        const bIsOrg = b.direccion_organiza && normU(b.unidad) === normU(b.direccion_organiza);
+        if (aIsOrg !== bIsOrg) return aIsOrg ? 1 : -1;
+        const countDiff = (unitCounts[normU(b.unidad)] || 0) - (unitCounts[normU(a.unidad)] || 0);
+        if (countDiff !== 0) return countDiff;
+        const unitCmp = String(a.unidad || '').localeCompare(String(b.unidad || ''), 'es');
+        if (unitCmp !== 0) return unitCmp;
+        return Number(a.id || 0) - Number(b.id || 0);
+      });
+
+      const detailHeaders = [
+        'N°',
+        'Folio',
+        'Fecha Reunión',
+        'Hora Reunión',
+        'Tema de Reunión',
+        'Dirección que Organiza',
+        'Lugar',
+        'Modalidad / Tipo',
+        'Proceso ISO',
+        'Planificación',
+        'Nombre del Participante',
+        'Unidad del Participante',
+        'Cargo',
+        'Sexo',
+        'Fecha/Hora Firma Digital',
+        'IP Dispositivo',
+      ];
+
+      let varonCount = 0;
+      let mujerCount = 0;
+      const detailRows = [];
+      rows.forEach((r, idx) => {
+        const sxNorm = normalizeSexo(r.sexo);
+        if (sxNorm === 'Varón') varonCount++;
+        else if (sxNorm === 'Mujer') mujerCount++;
+
+        detailRows.push([
+          idx + 1,
+          Number(r.id),
+          r.fecha || '',
+          formatHoraAmPm(r.hora),
+          r.tema || '',
+          r.direccion_organiza || '',
+          r.lugar || '',
+          r.tipo || '',
+          r.proceso_iso || '',
+          r.planificacion || '',
+          r.nombre || '',
+          r.unidad || '',
+          r.cargo || '',
+          sxNorm || '',
+          r.registrado_en || '',
+          r.ip_dispositivo || '',
+        ]);
+      });
+
+      const totalCount = rows.length;
+      const varonPct = totalCount > 0 ? ((varonCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+      const mujerPct = totalCount > 0 ? ((mujerCount / totalCount) * 100).toFixed(1) + '%' : '0.0%';
+      const totalPct = totalCount > 0 ? '100.0%' : '0.0%';
+
+      const detailSummaryRows = [
+        ['RESUMEN POR SEXO', 'CANTIDAD', 'PORCENTAJE'],
+        ['Varón', varonCount, varonPct],
+        ['Mujer', mujerCount, mujerPct],
+        ['Total de Participantes', totalCount, totalPct],
+      ];
+
+      const agendaHeaders = [
+        'N°',
+        'Fecha',
+        'Hora',
+        'Tema / Agenda de Reunión',
+        'Dirección que Organiza',
+        'Lugar / Sala',
+        'Modalidad',
+        'Proceso ISO',
+        'Planificación',
+        'Unidades Invitadas',
+        'Total de Participantes',
+        'Varones',
+        'Mujeres',
+        'Estado',
+      ];
+
+      let agendaTotalParticipants = 0;
+      const agendaRows = filteredEvents.map((ev, idx) => {
+        const st = computeEventStatus(ev);
+        const stats = eventStatsMap[ev.id] || { total: 0, varon: 0, mujer: 0 };
+        agendaTotalParticipants += stats.total;
+        return [
+          idx + 1,
+          ev.fecha || '',
+          formatHoraAmPm(ev.hora),
+          ev.tema || '',
+          ev.direccion_organiza || '',
+          ev.lugar || '',
+          ev.tipo || '',
+          ev.proceso_iso || '',
+          ev.planificacion || '',
+          parseUnidadesInvitadas(ev.unidades_invitadas).join(', '),
+          stats.total,
+          stats.varon,
+          stats.mujer,
+          st.etiqueta_estado || (st.activa ? 'Activa' : 'Desactivada'),
+        ];
+      });
+
+      const agendaSummaryRows = [
+        ['Total de Listas / Agendas', filteredEvents.length],
+        ['Total de Participantes', agendaTotalParticipants],
+      ];
+
+      const detailSheet = {
+        name: 'Detalle Participantes',
+        headers: detailHeaders,
+        rows: detailRows,
+        summaryRows: detailSummaryRows,
+      };
+      const agendaSheet = {
+        name: 'Listas y Agendas',
+        headers: agendaHeaders,
+        rows: agendaRows,
+        summaryRows: agendaSummaryRows,
+      };
+
+      const sheets = view === 'agendas' ? [agendaSheet, detailSheet] : [detailSheet, agendaSheet];
+      const xlsxBuffer = buildMultiSheetXlsxBuffer(sheets);
+
+      let filename = 'base-datos-asistencias-general.xlsx';
+      if (eventoId) {
+        filename = `asistencia-evento-${eventoId.slice(0, 8)}.xlsx`;
+      } else if (view === 'agendas') {
+        filename = 'listas-agendas-asistencias.xlsx';
+      }
+
+      res.writeHead(200, {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': xlsxBuffer.length,
+      });
+      res.end(xlsxBuffer);
       return;
     }
 

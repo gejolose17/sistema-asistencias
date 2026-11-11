@@ -127,7 +127,7 @@
 
     .sheet-header {
       display: grid;
-      grid-template-columns: 145px 1fr 145px;
+      grid-template-columns: 205px 1fr 145px;
       align-items: center;
       border: 2px solid var(--dark);
       margin-bottom: 18px;
@@ -142,6 +142,10 @@
       border-right: 2px solid var(--dark);
     }
 
+    .sheet-logo.left {
+      height: 100px;
+    }
+
     .sheet-logo.right {
       border-right: none;
       border-left: 2px solid var(--dark);
@@ -151,6 +155,11 @@
       max-width: 100%;
       max-height: 68px;
       object-fit: contain;
+    }
+
+    .sheet-logo.left img {
+      max-height: 92px;
+      max-width: 100%;
     }
 
     .sheet-title-box {
@@ -251,13 +260,19 @@
 
     @media (max-width: 640px) {
       .sheet-header {
-        grid-template-columns: 80px 1fr 80px;
+        grid-template-columns: 108px 1fr 80px;
       }
       .sheet-logo {
         height: 60px;
       }
+      .sheet-logo.left {
+        height: 76px;
+      }
       .sheet-logo img {
         max-height: 46px;
+      }
+      .sheet-logo.left img {
+        max-height: 68px;
       }
     }
 
@@ -328,7 +343,7 @@
 
   <div class="sheet">
     <div class="sheet-header">
-      <div class="sheet-logo">
+      <div class="sheet-logo left">
         <img id="leftLogo" src="/image/uamh.png" alt="Logo UAM" />
       </div>
       <div class="sheet-title-box">
