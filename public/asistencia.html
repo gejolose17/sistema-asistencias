@@ -1255,36 +1255,72 @@
       saveBtn.innerHTML = '<span>Guardando asistencia...</span>';
 
       try {
+        const clientRequestId = 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
         const submitPayload = JSON.stringify({
           unidad,
           cargo,
           sexo,
           nombre,
           firma_base64: firmaBase64,
+          client_request_id: clientRequestId,
+          evento_snapshot: currentEvent || null,
         });
-        let res = await fetch(`/api/public/asistencia/${encodeURIComponent(eventToken)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: submitPayload,
-        });
-        if (res.status === 404) {
-          const synced = await trySyncFromLocalBackup();
-          if (synced) {
+
+        let res = null;
+        let result = null;
+        let lastErrorMsg = '';
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            if (attempt > 1) {
+              saveBtn.innerHTML = `<span>Reintentando envío (${attempt}/3)...</span>`;
+            }
+
             res = await fetch(`/api/public/asistencia/${encodeURIComponent(eventToken)}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: submitPayload,
             });
+
+            if (res.status === 404) {
+              const synced = await trySyncFromLocalBackup();
+              if (synced) {
+                res = await fetch(`/api/public/asistencia/${encodeURIComponent(eventToken)}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: submitPayload,
+                });
+              }
+            }
+
+            if (res.status === 400 || res.status === 403) {
+              result = await res.json().catch(() => ({}));
+              break;
+            }
+
+            if (res.ok) {
+              result = await res.json().catch(() => ({}));
+              break;
+            }
+
+            if (res.status >= 500) {
+              lastErrorMsg = 'El servidor está procesando solicitudes simultáneas, reintentando...';
+              await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+            }
+          } catch (netErr) {
+            lastErrorMsg = 'Problema de conexión a internet o red, reintentando...';
+            if (attempt < 3) {
+              await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+            }
           }
         }
 
-        const result = await res.json();
-        if (!res.ok) {
-          if (res.status === 403 && result.evento) {
+        if (!res || !res.ok) {
+          if (res && res.status === 403 && result && result.evento) {
             renderExpiredState(result.evento);
             return;
           }
-          showError(result.error || 'No se pudo guardar la asistencia.');
+          showError((result && result.error) || lastErrorMsg || 'No se pudo guardar la asistencia. Por favor intente nuevamente.');
           saveBtn.disabled = false;
           saveBtn.innerHTML = '<span>Guardar Asistencia</span>';
           return;

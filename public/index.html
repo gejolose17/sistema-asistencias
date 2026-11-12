@@ -335,6 +335,14 @@
       margin: 18px auto 48px;
       padding: 0 24px;
       flex: 1;
+      transition: max-width 0.18s ease, padding 0.18s ease;
+    }
+
+    .main-container:has(#tab-basedatos.active),
+    .app-shell.full-width-view .main-container {
+      max-width: 100%;
+      margin: 12px 0 36px;
+      padding: 0 16px;
     }
 
     @media (max-width: 900px) {
@@ -836,6 +844,80 @@
       color: #fff !important;
     }
 
+    .unit-badge-uniform {
+      display: inline-flex;
+      align-items: center;
+      width: 100%;
+      max-width: 215px;
+      min-height: 28px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: #eef8fa;
+      color: #0e6f7a;
+      border: 1px solid #ccebf0;
+      font-size: 0.71rem;
+      line-height: 1.22;
+      font-weight: 700;
+      white-space: normal;
+      word-break: break-word;
+      text-align: left;
+      box-sizing: border-box;
+    }
+
+    .db-pagination-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 12px 4px 4px;
+      margin-top: 8px;
+    }
+
+    .db-pagination-info {
+      font-size: 0.82rem;
+      color: var(--slate);
+      font-weight: 600;
+    }
+
+    .db-pagination-controls {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .db-page-btn {
+      min-width: 34px;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 7px;
+      border: 1px solid #cbd5e1;
+      background: var(--white);
+      color: var(--dark-gray);
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .db-page-btn:hover:not(:disabled) {
+      border-color: var(--primary);
+      color: var(--primary-dark);
+      background: var(--primary-soft);
+    }
+
+    .db-page-btn.active {
+      background: var(--primary);
+      color: var(--white);
+      border-color: var(--primary);
+    }
+
+    .db-page-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
     /* ── PESTAÑA 4: CONFIGURACIÓN DE CATÁLOGOS DESPLEGABLES ── */
     .config-layout {
       display: grid;
@@ -1110,10 +1192,10 @@
                     Tiempo de Actividad del Formulario de Asistencia
                   </label>
                   <select id="evVigenciaModo" class="sel">
-                    <option value="30">⏱️ Automático: 30 minutos activos (Por defecto)</option>
+                    <option value="0" selected>🔓 Sin límite de tiempo (Siempre Activa - Sin límite de captación)</option>
+                    <option value="30">⏱️ Automático: 30 minutos activos</option>
                     <option value="60">⏱️ Automático: 60 minutos activos (1 hora)</option>
                     <option value="120">⏱️ Automático: 120 minutos activos (2 horas)</option>
-                    <option value="0">🔓 Siempre Activo (No desactivar automáticamente)</option>
                   </select>
                 </div>
 
@@ -1398,7 +1480,7 @@
               <table class="db-table">
                 <thead>
                   <tr>
-                    <th>Folio</th>
+                    <th id="colHeaderFolioOrNum" style="min-width:70px;text-align:center;">Folio</th>
                     <th>Fecha / Hora Reunión</th>
                     <th>Hora de Llenado</th>
                     <th>Tema de Reunión</th>
@@ -1416,6 +1498,12 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+
+            <!-- BARRA DE PAGINACIÓN DE 20 REGISTROS POR PÁGINA -->
+            <div id="dbPaginationBar" class="db-pagination-bar" style="display:none;">
+              <div id="dbPaginationInfo" class="db-pagination-info"></div>
+              <div id="dbPaginationControls" class="db-pagination-controls"></div>
             </div>
           </div>
         </div>
@@ -2134,7 +2222,7 @@
         if (data.papelera) {
           renderPapeleraFromData(data.papelera);
         }
-        await loadCentralDatabase();
+        await loadCentralDatabase(false);
         return data;
       } catch (err) {
         console.warn('Fallback loadEventos:', err);
@@ -2179,6 +2267,15 @@
       const titleEl = document.getElementById('currentSectionTitle');
       if (titleEl && tabSectionTitles[tabId]) {
         titleEl.textContent = tabSectionTitles[tabId];
+      }
+
+      const shell = document.querySelector('.app-shell');
+      if (shell) {
+        if (tabId === 'basedatos') {
+          shell.classList.add('full-width-view');
+        } else {
+          shell.classList.remove('full-width-view');
+        }
       }
 
       saveLocalBackup({ activeTab: tabId });
@@ -3173,33 +3270,35 @@
         .join('');
     }
 
-    async function loadCentralDatabase() {
-      const q = document.getElementById('dbFilterSearch').value.trim();
-      const eventoId = document.getElementById('dbFilterEvento').value;
-      const unidad = document.getElementById('dbFilterUnidad').value;
-      const procesoIso = document.getElementById('dbFilterProceso').value;
-      const fecha = document.getElementById('dbFilterFecha').value;
+    let dbCurrentPage = 1;
+    const DB_PAGE_SIZE = 20;
+    let dbFilteredList = [];
+    let dbCurrentEventoFilter = '';
 
-      const params = new URLSearchParams();
-      if (q) params.set('q', q);
-      if (eventoId) params.set('evento_id', eventoId);
-      if (unidad) params.set('unidad', unidad);
-      if (procesoIso) params.set('proceso_iso', procesoIso);
-      if (fecha) params.set('fecha', fecha);
+    function goToDbPage(pageNum) {
+      const totalPages = Math.ceil((dbFilteredList || []).length / DB_PAGE_SIZE) || 1;
+      if (pageNum < 1) pageNum = 1;
+      if (pageNum > totalPages) pageNum = totalPages;
+      dbCurrentPage = pageNum;
+      renderCentralDbPage();
+    }
 
-      const res = await fetch(`/api/asistencias?${params.toString()}`);
-      const data = await res.json();
-      const list = data.asistencias || [];
-      lastLoadedAsistencias = list;
-
-      if (!q && !eventoId && !unidad && !procesoIso && !fecha) {
-        document.getElementById('badgeAsistenciasCount').textContent = list.length;
-      }
-      const badgeDet = document.getElementById('badgeDbDetalleCount');
-      if (badgeDet) badgeDet.textContent = list.length;
-
+    function renderCentralDbPage() {
       const tbody = document.getElementById('centralDbTableBody');
-      if (list.length === 0) {
+      const pBar = document.getElementById('dbPaginationBar');
+      const pInfo = document.getElementById('dbPaginationInfo');
+      const pCtrls = document.getElementById('dbPaginationControls');
+      const colHeader = document.getElementById('colHeaderFolioOrNum');
+
+      const isFilteredByEvento = Boolean(dbCurrentEventoFilter);
+      if (colHeader) {
+        colHeader.textContent = isFilteredByEvento ? 'N°' : 'Folio';
+        colHeader.title = isFilteredByEvento
+          ? 'Numeración correlativa de asistentes captados en esta reunión'
+          : 'Número de folio único de registro en la base de datos';
+      }
+
+      if (!dbFilteredList || dbFilteredList.length === 0) {
         tbody.innerHTML = `
           <tr>
             <td colspan="10" style="text-align:center;padding:30px;color:var(--muted);">
@@ -3207,18 +3306,33 @@
             </td>
           </tr>
         `;
+        if (pBar) pBar.style.display = 'none';
         return;
       }
 
-      tbody.innerHTML = list
-        .map((row) => {
+      const totalItems = dbFilteredList.length;
+      const totalPages = Math.ceil(totalItems / DB_PAGE_SIZE) || 1;
+      if (dbCurrentPage > totalPages) dbCurrentPage = totalPages;
+      if (dbCurrentPage < 1) dbCurrentPage = 1;
+
+      const startIndex = (dbCurrentPage - 1) * DB_PAGE_SIZE;
+      const endIndex = Math.min(startIndex + DB_PAGE_SIZE, totalItems);
+      const pageList = dbFilteredList.slice(startIndex, endIndex);
+
+      tbody.innerHTML = pageList
+        .map((row, idx) => {
+          const globalIdx = startIndex + idx;
+          const folioOrNumHtml = isFilteredByEvento
+            ? `<strong style="font-size:0.95rem;color:var(--dark-gray);">${globalIdx + 1}</strong>`
+            : `<strong>#${row.id}</strong>`;
           const horaLlenadoRaw = resolveHoraLlenadoUi(row);
           const horaLlenadoStr = horaLlenadoRaw ? formatHoraAmPmUi(horaLlenadoRaw) : '-';
           const fechaLlenadoIso = toLocalDateUtcMinus6(row.registrado_en);
           const fechaLlenadoStr = fechaLlenadoIso ? formatFechaEs(fechaLlenadoIso) : '';
+
           return `
         <tr>
-          <td><strong>#${row.id}</strong></td>
+          <td style="text-align:center;">${folioOrNumHtml}</td>
           <td>
             <strong>${escapeHtml(formatFechaEs(row.fecha))}</strong><br/>
             <small style="color:var(--muted)">${escapeHtml(formatHoraAmPmUi(row.hora))} (${escapeHtml(row.evento_tipo || 'Presencial')})</small>
@@ -3236,7 +3350,7 @@
             <small style="color:var(--primary-dark)">${escapeHtml(row.evento_proceso_iso || '-')}</small>
           </td>
           <td><strong>${escapeHtml(row.nombre)}</strong></td>
-          <td><span class="state-pill active">${escapeHtml(row.unidad)}</span></td>
+          <td><span class="unit-badge-uniform" title="${escapeHtml(row.unidad || '')}">${escapeHtml(row.unidad || '-')}</span></td>
           <td>
             <div>${escapeHtml(row.cargo || '-')}</div>
             <small style="color:var(--muted)">${escapeHtml(normalizeSexoLabel(row.sexo) || '-')}</small>
@@ -3268,9 +3382,77 @@
       `;
         })
         .join('');
+
+      if (pBar) {
+        pBar.style.display = 'flex';
+        if (pInfo) {
+          pInfo.innerHTML = `Mostrando <b>${startIndex + 1} - ${endIndex}</b> de <b>${totalItems}</b> registros ${isFilteredByEvento ? '(captados en esta reunión)' : '(vista general)'} · Página <b>${dbCurrentPage}</b> de <b>${totalPages}</b>`;
+        }
+
+        if (pCtrls) {
+          if (totalPages <= 1) {
+            pCtrls.innerHTML = '';
+          } else {
+            let ctrlHtml = '';
+            ctrlHtml += `<button type="button" class="db-page-btn" ${dbCurrentPage === 1 ? 'disabled' : ''} onclick="goToDbPage(${dbCurrentPage - 1})">« Anterior</button>`;
+
+            // Páginas numéricas inteligentes
+            const pagesToShow = [];
+            for (let i = 1; i <= totalPages; i++) {
+              if (i === 1 || i === totalPages || (i >= dbCurrentPage - 2 && i <= dbCurrentPage + 2)) {
+                pagesToShow.push(i);
+              }
+            }
+
+            let lastP = 0;
+            for (const p of pagesToShow) {
+              if (lastP && p - lastP > 1) {
+                ctrlHtml += `<span style="padding:0 4px;color:var(--muted);">...</span>`;
+              }
+              ctrlHtml += `<button type="button" class="db-page-btn ${p === dbCurrentPage ? 'active' : ''}" onclick="goToDbPage(${p})">${p}</button>`;
+              lastP = p;
+            }
+
+            ctrlHtml += `<button type="button" class="db-page-btn" ${dbCurrentPage === totalPages ? 'disabled' : ''} onclick="goToDbPage(${dbCurrentPage + 1})">Siguiente »</button>`;
+            pCtrls.innerHTML = ctrlHtml;
+          }
+        }
+      }
+    }
+
+    async function loadCentralDatabase(resetPage = true) {
+      if (resetPage) dbCurrentPage = 1;
+      const q = document.getElementById('dbFilterSearch').value.trim();
+      const eventoId = document.getElementById('dbFilterEvento').value;
+      const unidad = document.getElementById('dbFilterUnidad').value;
+      const procesoIso = document.getElementById('dbFilterProceso').value;
+      const fecha = document.getElementById('dbFilterFecha').value;
+      dbCurrentEventoFilter = eventoId;
+
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (eventoId) params.set('evento_id', eventoId);
+      if (unidad) params.set('unidad', unidad);
+      if (procesoIso) params.set('proceso_iso', procesoIso);
+      if (fecha) params.set('fecha', fecha);
+
+      const res = await fetch(`/api/asistencias?${params.toString()}`);
+      const data = await res.json();
+      const list = data.asistencias || [];
+      lastLoadedAsistencias = list;
+      dbFilteredList = list;
+
+      if (!q && !eventoId && !unidad && !procesoIso && !fecha) {
+        document.getElementById('badgeAsistenciasCount').textContent = list.length;
+      }
+      const badgeDet = document.getElementById('badgeDbDetalleCount');
+      if (badgeDet) badgeDet.textContent = list.length;
+
+      renderCentralDbPage();
     }
 
     function resetDbFilters() {
+      dbCurrentPage = 1;
       document.getElementById('dbFilterSearch').value = '';
       document.getElementById('dbFilterEvento').value = '';
       document.getElementById('dbFilterUnidad').value = '';

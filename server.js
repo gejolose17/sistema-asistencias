@@ -24,6 +24,7 @@ const {
   formatHoraAmPm,
   formatFechaEs,
   resolveHoraLlenado,
+  runWithDbRetry,
   getNowISO,
   getLocalDateStr,
   getLocalTimeStr,
@@ -574,7 +575,7 @@ async function requestHandler(req, res) {
       const duracionVentana =
         body.duracion_ventana_min !== undefined && body.duracion_ventana_min !== null
           ? Number(body.duracion_ventana_min)
-          : 30;
+          : 0;
       const estadoManual =
         body.estado_manual !== undefined
           ? String(body.estado_manual)
@@ -827,7 +828,55 @@ async function requestHandler(req, res) {
     const pubSubmitMatch = pathname.match(/^\/api\/public\/asistencia\/([^/]+)$/);
     if (pubSubmitMatch && method === 'POST') {
       const token = pubSubmitMatch[1];
-      const evento = db.prepare('SELECT * FROM eventos WHERE token = ? OR id = ?').get(token, token);
+      const body = await readJsonBody(req);
+      let evento = db.prepare('SELECT * FROM eventos WHERE token = ? OR id = ?').get(token, token);
+
+      // Si una instancia serverless fría aún no tiene el evento en /tmp pero el formulario trae su snapshot, rehidratarlo
+      if (!evento && body && body.evento_snapshot && typeof body.evento_snapshot === 'object') {
+        const snap = body.evento_snapshot;
+        if (snap.id && snap.tema && snap.fecha && snap.hora && (snap.token === token || snap.id === token)) {
+          const snapUnits = Array.isArray(snap.unidades_invitadas_lista)
+            ? JSON.stringify(snap.unidades_invitadas_lista)
+            : typeof snap.unidades_invitadas === 'string'
+            ? snap.unidades_invitadas
+            : '[]';
+          const nowIso = getNowISO();
+          runWithDbRetry(() => {
+            db.prepare(`
+              INSERT OR IGNORE INTO eventos (
+                id, token, tema, fecha, hora, direccion_organiza, unidades_invitadas,
+                lugar, tipo, proceso_iso, planificacion, organizador, descripcion,
+                duracion_ventana_min, estado_manual, logo_izquierdo_custom, logo_derecho_custom,
+                creado_en, eliminado, eliminado_en, actualizado_en
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?)
+            `).run(
+              String(snap.id),
+              String(snap.token || token),
+              String(snap.tema),
+              String(snap.fecha),
+              String(snap.hora),
+              String(snap.direccion_organiza || ''),
+              snapUnits,
+              String(snap.lugar || ''),
+              String(snap.tipo || 'Presencial'),
+              String(snap.proceso_iso || 'No Aplica'),
+              String(snap.planificacion || 'No Aplica'),
+              String(snap.organizador || snap.direccion_organiza || ''),
+              String(snap.descripcion || ''),
+              snap.duracion_ventana_min !== undefined && snap.duracion_ventana_min !== null
+                ? Number(snap.duracion_ventana_min)
+                : 0,
+              String(snap.estado_manual || 'FORZAR_ABIERTA'),
+              String(snap.logo_izquierdo_custom || ''),
+              String(snap.logo_derecho_custom || ''),
+              String(snap.creado_en || nowIso),
+              String(snap.actualizado_en || nowIso)
+            );
+          });
+          evento = db.prepare('SELECT * FROM eventos WHERE token = ? OR id = ?').get(token, token);
+        }
+      }
+
       if (!evento || evento.eliminado === 1) {
         return sendJSON(res, 404, { error: 'Lista de asistencia no encontrada o fue enviada a la papelera.' });
       }
@@ -836,17 +885,19 @@ async function requestHandler(req, res) {
       if (!status.activa) {
         return sendJSON(res, 403, {
           error:
-            'Lista desactivada: Han transcurrido más de 30 minutos desde la fecha y hora programada para esta reunión.',
+            evento.estado_manual === 'FORZAR_CERRADA'
+              ? 'Lista desactivada manualmente por el administrador.'
+              : 'Lista desactivada: Han transcurrido más de 30 minutos desde la fecha y hora programada para esta reunión.',
           evento: status,
         });
       }
 
-      const body = await readJsonBody(req);
       const unidad = String(body.unidad || '').trim();
       const cargo = String(body.cargo || '').trim();
       const sexo = normalizeSexo(body.sexo || '');
       const nombre = String(body.nombre || '').trim();
       const firmaBase64 = String(body.firma_base64 || '').trim();
+      const clientRequestId = String(body.client_request_id || '').trim().slice(0, 80);
 
       if (!unidad) {
         return sendJSON(res, 400, { error: 'Por favor seleccione su Unidad de la lista desplegable.' });
@@ -869,37 +920,59 @@ async function requestHandler(req, res) {
         });
       }
 
+      // Idempotencia ante reintentos automáticos simultáneos
+      if (clientRequestId) {
+        const prevDup = db
+          .prepare('SELECT * FROM asistencias WHERE evento_id = ? AND client_request_id = ?')
+          .get(evento.id, clientRequestId);
+        if (prevDup) {
+          const configsDup = getAllConfigs();
+          return sendJSON(res, 200, {
+            ok: true,
+            deduplicated: true,
+            mensaje_titulo: configsDup.mensaje_gracias_titulo || '¡Gracias por llenar esta asistencia!',
+            mensaje_cuerpo:
+              configsDup.mensaje_gracias_cuerpo ||
+              'Su asistencia ha sido guardada exitosamente en la base de datos.',
+            registro: prevDup,
+          });
+        }
+      }
+
       const ip =
         (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
-        req.socket.remoteAddress ||
+        (req.socket?.remoteAddress || '') ||
         '';
       const userAgent = String(req.headers['user-agent'] || '').slice(0, 250);
       const nowDate = new Date();
       const registradoEn = nowDate.toISOString();
       const horaLlenado = getLocalTimeStr(nowDate);
 
-      const result = db
-        .prepare(`
-          INSERT INTO asistencias (
-            evento_id, unidad, cargo, sexo, tema, nombre, fecha, hora, hora_llenado, firma_base64, ip_dispositivo, user_agent, registrado_en, actualizado_en
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `)
-        .run(
-          evento.id,
-          unidad,
-          cargo,
-          sexo,
-          evento.tema,
-          nombre,
-          evento.fecha,
-          evento.hora,
-          horaLlenado,
-          firmaBase64,
-          ip,
-          userAgent,
-          registradoEn,
-          registradoEn
-        );
+      const result = runWithDbRetry(() =>
+        db
+          .prepare(`
+            INSERT INTO asistencias (
+              evento_id, unidad, cargo, sexo, tema, nombre, fecha, hora, hora_llenado, client_request_id, firma_base64, ip_dispositivo, user_agent, registrado_en, actualizado_en
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `)
+          .run(
+            evento.id,
+            unidad,
+            cargo,
+            sexo,
+            evento.tema,
+            nombre,
+            evento.fecha,
+            evento.hora,
+            horaLlenado,
+            clientRequestId,
+            firmaBase64,
+            ip,
+            userAgent,
+            registradoEn,
+            registradoEn
+          )
+      );
 
       const nuevoRegistro = db
         .prepare('SELECT * FROM asistencias WHERE id = ?')
