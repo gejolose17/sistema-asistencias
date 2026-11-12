@@ -1332,6 +1332,9 @@
             </div>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <button type="button" class="btn-primary" style="padding:8px 16px;font-size:0.84rem;background:#0284c7;border-color:#0369a1;font-weight:700;" onclick="openModalManualAsistencia()">
+              ➕ Registrar / Recuperar Participante
+            </button>
             <button type="button" class="btn-primary" style="padding:8px 16px;font-size:0.84rem;font-weight:700;" onclick="descargarListaCompletaPDF()">
               📄 Descargar lista completa (PDF)
             </button>
@@ -1972,6 +1975,116 @@
           <div style="display:flex;gap:10px;justify-content:flex-end;">
             <button type="button" class="btn-outline" onclick="closeEditAsistenciaModal()">Cancelar</button>
             <button type="submit" class="btn-primary" id="saveEditAsisBtn">💾 Guardar Cambios</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: REGISTRAR / RECUPERAR ASISTENCIA MANUAL (INDIVIDUAL O EN LOTE) -->
+  <div class="modal-backdrop" id="manualAsistenciaModalBackdrop">
+    <div class="qr-modal" style="max-width:620px;text-align:left;">
+      <div class="qr-modal-header" style="background:#0284c7;">
+        <strong>➕ REGISTRAR / RECUPERAR ASISTENCIA</strong>
+        <button
+          type="button"
+          onclick="closeModalManualAsistencia()"
+          style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;"
+        >✕</button>
+      </div>
+      <div class="qr-modal-body" style="padding:22px;">
+        <div style="font-size:0.83rem;color:var(--slate);margin-bottom:14px;background:#f0f9ff;border:1px solid #bae6fd;padding:10px 12px;border-radius:8px;">
+          Permite agregar o recuperar participantes para reuniones pasadas o activas (como el <b>Proceso 06</b>) sin perder fecha ni hora de registro.
+        </div>
+        
+        <!-- Pestañas del Modal: Individual vs En Lote -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <button type="button" id="tabBtnManualSingle" class="btn-primary" style="padding:6px 14px;font-size:0.82rem;" onclick="switchManualAsisMode('single')">
+            ✍️ Registro Individual
+          </button>
+          <button type="button" id="tabBtnManualBatch" class="btn-outline" style="padding:6px 14px;font-size:0.82rem;" onclick="switchManualAsisMode('batch')">
+            📋 Carga Rápida en Lote
+          </button>
+        </div>
+
+        <div id="manualAsisErrorBox" class="error-alert" style="margin-bottom:14px;display:none;"></div>
+
+        <!-- MODO 1: INDIVIDUAL -->
+        <form id="manualAsisSingleForm">
+          <div style="margin-bottom:12px;">
+            <label class="lbl" for="manualAsisEvento">Reunión / Lista de Asistencia <span class="req">*</span></label>
+            <select id="manualAsisEvento" class="sel" onchange="onManualEventoChange()" required></select>
+          </div>
+          <div style="margin-bottom:12px;">
+            <label class="lbl" for="manualAsisNombre">Nombre Completo del Participante <span class="req">*</span></label>
+            <input type="text" id="manualAsisNombre" class="inp" placeholder="Ej: Dr. Juan Carlos Morales" required />
+          </div>
+          <div style="margin-bottom:12px;">
+            <label class="lbl" for="manualAsisUnidad">Unidad <span class="req">*</span></label>
+            <select id="manualAsisUnidad" class="sel" required></select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div>
+              <label class="lbl" for="manualAsisCargo">Cargo</label>
+              <select id="manualAsisCargo" class="sel"></select>
+            </div>
+            <div>
+              <label class="lbl" for="manualAsisSexo">Sexo</label>
+              <select id="manualAsisSexo" class="sel">
+                <option value="Varón">Varón</option>
+                <option value="Mujer">Mujer</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
+            <div>
+              <label class="lbl" for="manualAsisHoraLlenado">Hora de Llenado</label>
+              <input type="time" id="manualAsisHoraLlenado" class="inp" />
+            </div>
+            <div>
+              <label class="lbl" for="manualAsisFecha">Fecha de Registro</label>
+              <input type="date" id="manualAsisFecha" class="inp" />
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" class="btn-outline" onclick="closeModalManualAsistencia()">Cancelar</button>
+            <button type="submit" class="btn-primary" style="background:#0284c7;border-color:#0369a1;" id="saveManualAsisBtn">
+              💾 Guardar Participante
+            </button>
+          </div>
+        </form>
+
+        <!-- MODO 2: EN LOTE -->
+        <form id="manualAsisBatchForm" style="display:none;">
+          <div style="margin-bottom:12px;">
+            <label class="lbl" for="manualBatchEvento">Reunión / Lista de Asistencia <span class="req">*</span></label>
+            <select id="manualBatchEvento" class="sel" onchange="onManualBatchEventoChange()" required></select>
+          </div>
+          <div style="margin-bottom:12px;">
+            <label class="lbl" for="manualBatchUnidadDefecto">Unidad Predeterminada (si no se especifica por línea)</label>
+            <select id="manualBatchUnidadDefecto" class="sel"></select>
+          </div>
+          <div style="margin-bottom:12px;">
+            <label class="lbl" for="manualBatchText">
+              Lista de Participantes (un nombre por línea) <span class="req">*</span>
+            </label>
+            <div style="font-size:0.75rem;color:var(--muted);margin-bottom:6px;">
+              Formato flexible: <code>Nombre Completo</code> o <code>Nombre Completo - Unidad</code>
+            </div>
+            <textarea
+              id="manualBatchText"
+              class="inp"
+              rows="6"
+              style="width:100%;font-family:inherit;padding:8px;font-size:0.85rem;"
+              placeholder="Ejemplo:&#10;Dr. Juan Perez - Facultad Odontología&#10;Lic. Maria Lopez - Dirección Registro Académico&#10;Carlos Mendoza"
+              required
+            ></textarea>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" class="btn-outline" onclick="closeModalManualAsistencia()">Cancelar</button>
+            <button type="submit" class="btn-primary" style="background:#0284c7;border-color:#0369a1;" id="saveManualBatchBtn">
+              📋 Procesar e Insertar Lote
+            </button>
           </div>
         </form>
       </div>
@@ -3648,6 +3761,236 @@
         errBox.style.display = 'block';
       } finally {
         btn.disabled = false;
+      }
+    });
+
+    // ── GESTIÓN DE REGISTRO MANUAL / RECUPERACIÓN DE ASISTENCIAS ──
+    let manualAsisMode = 'single';
+
+    function switchManualAsisMode(mode) {
+      manualAsisMode = mode;
+      const bSingle = document.getElementById('tabBtnManualSingle');
+      const bBatch = document.getElementById('tabBtnManualBatch');
+      const fSingle = document.getElementById('manualAsisSingleForm');
+      const fBatch = document.getElementById('manualAsisBatchForm');
+      const errBox = document.getElementById('manualAsisErrorBox');
+      if (errBox) errBox.style.display = 'none';
+
+      if (mode === 'single') {
+        bSingle.className = 'btn-primary';
+        bBatch.className = 'btn-outline';
+        fSingle.style.display = 'block';
+        fBatch.style.display = 'none';
+      } else {
+        bSingle.className = 'btn-outline';
+        bBatch.className = 'btn-primary';
+        fSingle.style.display = 'none';
+        fBatch.style.display = 'block';
+      }
+    }
+
+    function openModalManualAsistencia() {
+      const errBox = document.getElementById('manualAsisErrorBox');
+      if (errBox) errBox.style.display = 'none';
+
+      const evSingle = document.getElementById('manualAsisEvento');
+      const evBatch = document.getElementById('manualBatchEvento');
+      evSingle.innerHTML = '';
+      evBatch.innerHTML = '';
+
+      if (allEvents.length === 0) {
+        showToast('No hay reuniones programadas disponibles.');
+        return;
+      }
+
+      for (const ev of allEvents) {
+        const optText = `${escapeHtml(formatFechaEs(ev.fecha))} (${escapeHtml(formatHoraAmPmUi(ev.hora))}) — ${escapeHtml(ev.tema)}`;
+        const opt1 = new Option(optText, ev.id);
+        const opt2 = new Option(optText, ev.id);
+        evSingle.appendChild(opt1);
+        evBatch.appendChild(opt2);
+      }
+
+      // Preseleccionar la reunión activa en el filtro o por defecto la primera (o Proceso 06 si existe)
+      const targetEvId = dbCurrentEventoFilter || (allEvents.find(e => (e.tema || '').includes('06'))?.id) || allEvents[0].id;
+      evSingle.value = targetEvId;
+      evBatch.value = targetEvId;
+
+      populateSelectOptionsWithFallback(
+        document.getElementById('manualAsisCargo'),
+        (catalogosGrouped.CARGO || []).filter((c) => c.activo !== 0),
+        'Participante',
+        '-- Seleccione Cargo --'
+      );
+
+      onManualEventoChange();
+      onManualBatchEventoChange();
+
+      document.getElementById('manualAsisNombre').value = '';
+      document.getElementById('manualBatchText').value = '';
+
+      switchManualAsisMode('single');
+      document.getElementById('manualAsistenciaModalBackdrop').classList.add('open');
+      document.getElementById('manualAsisNombre').focus();
+    }
+
+    function closeModalManualAsistencia() {
+      document.getElementById('manualAsistenciaModalBackdrop').classList.remove('open');
+    }
+
+    function onManualEventoChange() {
+      const evId = document.getElementById('manualAsisEvento').value;
+      const ev = allEvents.find((e) => e.id === evId);
+      if (!ev) return;
+
+      document.getElementById('manualAsisFecha').value = ev.fecha || '';
+      document.getElementById('manualAsisHoraLlenado').value = String(ev.hora || '').slice(0, 5);
+
+      const invited = Array.isArray(ev.unidades_invitadas_lista) && ev.unidades_invitadas_lista.length > 0
+        ? ev.unidades_invitadas_lista
+        : (catalogosGrouped.UNIDAD || []).map(u => u.nombre);
+
+      const uSel = document.getElementById('manualAsisUnidad');
+      uSel.innerHTML = '<option value="">-- Seleccione Unidad --</option>';
+      for (const u of invited) {
+        uSel.appendChild(new Option(u, u));
+      }
+    }
+
+    function onManualBatchEventoChange() {
+      const evId = document.getElementById('manualBatchEvento').value;
+      const ev = allEvents.find((e) => e.id === evId);
+      if (!ev) return;
+
+      const invited = Array.isArray(ev.unidades_invitadas_lista) && ev.unidades_invitadas_lista.length > 0
+        ? ev.unidades_invitadas_lista
+        : (catalogosGrouped.UNIDAD || []).map(u => u.nombre);
+
+      const uDef = document.getElementById('manualBatchUnidadDefecto');
+      uDef.innerHTML = '<option value="">-- Sin Unidad por Defecto --</option>';
+      for (const u of invited) {
+        uDef.appendChild(new Option(u, u));
+      }
+    }
+
+    document.getElementById('manualAsisSingleForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('manualAsisErrorBox');
+      errBox.style.display = 'none';
+
+      const evento_id = document.getElementById('manualAsisEvento').value;
+      const nombre = document.getElementById('manualAsisNombre').value.trim();
+      const unidad = document.getElementById('manualAsisUnidad').value.trim();
+      const cargo = document.getElementById('manualAsisCargo').value.trim();
+      const sexo = document.getElementById('manualAsisSexo').value;
+      const hora_llenado = document.getElementById('manualAsisHoraLlenado').value.trim();
+      const fecha = document.getElementById('manualAsisFecha').value.trim();
+
+      if (!nombre || nombre.length < 2) {
+        errBox.textContent = 'Por favor ingrese el nombre completo del participante.';
+        errBox.style.display = 'block';
+        return;
+      }
+      if (!unidad) {
+        errBox.textContent = 'Por favor seleccione la unidad del participante.';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      const btn = document.getElementById('saveManualAsisBtn');
+      btn.disabled = true;
+      btn.textContent = 'Guardando...';
+
+      try {
+        const res = await fetch('/api/asistencias', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ evento_id, nombre, unidad, cargo, sexo, hora_llenado, fecha }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al registrar');
+
+        const b = loadLocalBackup();
+        if (data.registro) {
+          b.allAsistenciasRaw = [data.registro, ...(b.allAsistenciasRaw || []).filter(a => a.id !== data.registro.id)];
+          saveLocalBackup({ allAsistenciasRaw: b.allAsistenciasRaw });
+        }
+
+        closeModalManualAsistencia();
+        showToast('✅ Participante registrado correctamente.');
+        await syncWithServer();
+      } catch (err) {
+        errBox.textContent = err.message || 'Error de conexión al registrar.';
+        errBox.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Guardar Participante';
+      }
+    });
+
+    document.getElementById('manualAsisBatchForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('manualAsisErrorBox');
+      errBox.style.display = 'none';
+
+      const evento_id = document.getElementById('manualBatchEvento').value;
+      const unidad_defecto = document.getElementById('manualBatchUnidadDefecto').value.trim();
+      const rawText = document.getElementById('manualBatchText').value.trim();
+
+      if (!rawText) {
+        errBox.textContent = 'Por favor ingrese al menos un nombre.';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+      const participantes = [];
+
+      for (const line of lines) {
+        // Soporta formatos: "Nombre - Unidad" o "Nombre"
+        const parts = line.split('-').map(s => s.trim());
+        const pNombre = parts[0];
+        const pUnidad = parts.length > 1 ? parts[1] : (unidad_defecto || '');
+        if (pNombre && pNombre.length >= 2) {
+          participantes.push({ nombre: pNombre, unidad: pUnidad });
+        }
+      }
+
+      if (participantes.length === 0) {
+        errBox.textContent = 'No se encontraron nombres válidos para registrar.';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      const btn = document.getElementById('saveManualBatchBtn');
+      btn.disabled = true;
+      btn.textContent = `Insertando ${participantes.length} participantes...`;
+
+      try {
+        const res = await fetch('/api/asistencias', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ evento_id, participantes, unidad_defecto }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al procesar lote');
+
+        const b = loadLocalBackup();
+        if (Array.isArray(data.registros)) {
+          const newIds = new Set(data.registros.map(r => r.id));
+          b.allAsistenciasRaw = [...data.registros, ...(b.allAsistenciasRaw || []).filter(a => !newIds.has(a.id))];
+          saveLocalBackup({ allAsistenciasRaw: b.allAsistenciasRaw });
+        }
+
+        closeModalManualAsistencia();
+        showToast(`✅ Se registraron con éxito ${data.count || participantes.length} participantes.`);
+        await syncWithServer();
+      } catch (err) {
+        errBox.textContent = err.message || 'Error de conexión al procesar lote.';
+        errBox.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📋 Procesar e Insertar Lote';
       }
     });
 

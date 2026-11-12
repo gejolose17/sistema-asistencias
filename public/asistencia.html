@@ -1329,14 +1329,16 @@
         const reg = result.registro || {};
         try {
           const rawState = localStorage.getItem(STORAGE_KEY);
-          if (rawState && reg && reg.id) {
-            const parsed = JSON.parse(rawState);
-            if (parsed && Array.isArray(parsed.allAsistenciasRaw)) {
-              const exists = parsed.allAsistenciasRaw.some((a) => Number(a.id) === Number(reg.id));
-              if (!exists) {
-                parsed.allAsistenciasRaw.unshift(reg);
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-              }
+          let parsed = { allAsistenciasRaw: [] };
+          if (rawState) {
+            try { parsed = JSON.parse(rawState) || {}; } catch (_) {}
+          }
+          if (!Array.isArray(parsed.allAsistenciasRaw)) parsed.allAsistenciasRaw = [];
+          if (reg && reg.id) {
+            const exists = parsed.allAsistenciasRaw.some((a) => Number(a.id) === Number(reg.id));
+            if (!exists) {
+              parsed.allAsistenciasRaw.unshift(reg);
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
             }
           }
         } catch (_) {}

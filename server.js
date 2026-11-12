@@ -1076,6 +1076,155 @@ async function requestHandler(req, res) {
       });
     }
 
+    // ── 7.1. Registro Directo / Administrativo de Asistencias (Individual o en Lote) ──
+    if (pathname === '/api/asistencias' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const eventoId = String(body.evento_id || '').trim();
+
+      if (!eventoId) {
+        return sendJSON(res, 400, { error: 'Debe seleccionar la reunión o lista correspondiente.' });
+      }
+
+      const ev = db.prepare('SELECT * FROM eventos WHERE id = ? OR token = ?').get(eventoId, eventoId);
+      if (!ev) {
+        return sendJSON(res, 404, { error: 'Reunión no encontrada.' });
+      }
+
+      const defaultStamp = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="48" viewBox="0 0 160 48"><rect width="100%" height="100%" fill="%23f0fdf4" rx="4" stroke="%2386efac"/><text x="50%" y="45%" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="%23166534">REGISTRO VALIDADO</text><text x="50%" y="78%" text-anchor="middle" font-family="sans-serif" font-size="8" fill="%2315803d">SISTEMA DPGC UAM</text></svg>';
+      const nowIso = getNowISO();
+
+      // Modo Lote: Array de participantes
+      if (Array.isArray(body.participantes) && body.participantes.length > 0) {
+        const insertedRows = [];
+        runWithDbRetry(() => {
+          const insertStmt = db.prepare(`
+            INSERT INTO asistencias (
+              evento_id, unidad, cargo, sexo, tema, nombre, fecha, hora, hora_llenado,
+              client_request_id, firma_base64, ip_dispositivo, user_agent, registrado_en,
+              eliminado, eliminado_en, actualizado_en
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?)
+          `);
+
+          for (const p of body.participantes) {
+            const pNombre = String(p.nombre || '').trim();
+            const pUnidad = String(p.unidad || body.unidad_defecto || ev.direccion_organiza || '').trim();
+            const pCargo = String(p.cargo || body.cargo_defecto || 'Participante').trim();
+            const pSexo = normalizeSexo(p.sexo || body.sexo_defecto || 'Varón');
+            const pHoraLlenado = String(p.hora_llenado || body.hora_llenado || ev.hora || getLocalTimeStr()).trim();
+            const pFecha = String(p.fecha || body.fecha || ev.fecha).trim();
+            const pHora = String(p.hora || ev.hora).trim();
+            const pFirma = String(p.firma_base64 || defaultStamp).trim();
+
+            if (!pNombre || pNombre.length < 2) continue;
+
+            const resIns = insertStmt.run(
+              ev.id,
+              pUnidad,
+              pCargo,
+              pSexo,
+              ev.tema,
+              pNombre,
+              pFecha,
+              pHora,
+              pHoraLlenado,
+              `batch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+              pFirma,
+              '127.0.0.1 (Admin)',
+              'Panel Administrativo DPGC (Carga en Lote)',
+              nowIso,
+              nowIso
+            );
+            insertedRows.push(Number(resIns.lastInsertRowid));
+          }
+        });
+
+        const allInserted = db
+          .prepare(`
+            SELECT a.*, e.token as evento_token, e.lugar as evento_lugar, e.tipo as evento_tipo,
+                   e.direccion_organiza as evento_direccion_organiza, e.proceso_iso as evento_proceso_iso,
+                   e.planificacion as evento_planificacion
+            FROM asistencias a
+            LEFT JOIN eventos e ON e.id = a.evento_id
+            WHERE a.id IN (${insertedRows.map(() => '?').join(',')})
+            ORDER BY a.id ASC
+          `)
+          .all(...insertedRows);
+
+        const enrichedList = allInserted.map((r) => ({
+          ...r,
+          sexo: normalizeSexo(r.sexo),
+          hora_llenado: resolveHoraLlenado(r),
+        }));
+
+        broadcastSSE('asistencias_importadas', { count: enrichedList.length });
+        return sendJSON(res, 201, { ok: true, count: enrichedList.length, registros: enrichedList });
+      }
+
+      // Modo Individual
+      const nombre = String(body.nombre || '').trim();
+      const unidad = String(body.unidad || '').trim();
+      const cargo = String(body.cargo || '').trim();
+      const sexo = normalizeSexo(body.sexo || 'Varón');
+      const fecha = String(body.fecha || ev.fecha).trim();
+      const hora = String(body.hora || ev.hora).trim();
+      const horaLlenado = body.hora_llenado ? String(body.hora_llenado).trim() : ev.hora;
+      const firmaBase64 = String(body.firma_base64 || defaultStamp).trim();
+
+      if (!nombre || nombre.length < 2) {
+        return sendJSON(res, 400, { error: 'El nombre del participante es obligatorio.' });
+      }
+      if (!unidad) {
+        return sendJSON(res, 400, { error: 'La unidad del participante es obligatoria.' });
+      }
+
+      const resIns = runWithDbRetry(() =>
+        db.prepare(`
+          INSERT INTO asistencias (
+            evento_id, unidad, cargo, sexo, tema, nombre, fecha, hora, hora_llenado,
+            client_request_id, firma_base64, ip_dispositivo, user_agent, registrado_en,
+            eliminado, eliminado_en, actualizado_en
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?)
+        `).run(
+          ev.id,
+          unidad,
+          cargo,
+          sexo,
+          ev.tema,
+          nombre,
+          fecha,
+          hora,
+          horaLlenado,
+          `admin_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          firmaBase64,
+          '127.0.0.1 (Admin)',
+          'Panel Administrativo DPGC',
+          nowIso,
+          nowIso
+        )
+      );
+
+      const nuevoId = Number(resIns.lastInsertRowid);
+      const inserted = db
+        .prepare(`
+          SELECT a.*, e.token as evento_token, e.lugar as evento_lugar, e.tipo as evento_tipo,
+                 e.direccion_organiza as evento_direccion_organiza, e.proceso_iso as evento_proceso_iso,
+                 e.planificacion as evento_planificacion
+          FROM asistencias a
+          LEFT JOIN eventos e ON e.id = a.evento_id
+          WHERE a.id = ?
+        `)
+        .get(nuevoId);
+
+      const enriched = {
+        ...inserted,
+        sexo: normalizeSexo(inserted.sexo),
+        hora_llenado: resolveHoraLlenado(inserted),
+      };
+
+      broadcastSSE('nueva_asistencia', { asistencia: enriched });
+      return sendJSON(res, 201, { ok: true, registro: enriched });
+    }
+
     const asistenciaIdMatch = pathname.match(/^\/api\/asistencias\/(\d+)$/);
     if (asistenciaIdMatch && method === 'PUT') {
       const id = Number(asistenciaIdMatch[1]);
