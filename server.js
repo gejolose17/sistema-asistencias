@@ -22,7 +22,11 @@ const {
   resolveLogoForDireccion,
   normalizeSexo,
   formatHoraAmPm,
+  formatFechaEs,
+  resolveHoraLlenado,
   getNowISO,
+  getLocalDateStr,
+  getLocalTimeStr,
 } = require('./lib/db');
 const { generateQRSVG, generateQRMatrix } = require('./lib/qrcode');
 const { buildMultiSheetXlsxBuffer } = require('./lib/excel');
@@ -183,6 +187,13 @@ function serveStaticFile(res, filePath) {
   });
 }
 
+function formatRegistradoEnDisplay(isoStr) {
+  if (!isoStr) return '';
+  const dt = new Date(isoStr);
+  if (isNaN(dt.getTime())) return String(isoStr);
+  return `${formatFechaEs(getLocalDateStr(dt))} ${formatHoraAmPm(getLocalTimeStr(dt))}`;
+}
+
 function buildEventResponse(evento, baseUrl) {
   const status = computeEventStatus(evento);
   const countRow = db
@@ -235,13 +246,17 @@ async function requestHandler(req, res) {
       const body = await readJsonBody(req);
       syncClientDataToDb(body);
 
+      if (body && body.syncOnly) {
+        return sendJSON(res, 200, { ok: true, syncOnly: true });
+      }
+
       const baseUrl = getEffectiveBaseUrl(req);
       const allEvRows = db.prepare('SELECT * FROM eventos ORDER BY fecha DESC, hora DESC').all();
       const allEventosRaw = allEvRows.map((ev) => buildEventResponse(ev, baseUrl));
       const eventosActivos = allEventosRaw.filter((ev) => !ev.eliminado);
       const eventosPapelera = allEventosRaw.filter((ev) => Boolean(ev.eliminado));
 
-      const allAsisRows = db
+      const allAsisRowsRaw = db
         .prepare(`
           SELECT
             a.*,
@@ -259,6 +274,12 @@ async function requestHandler(req, res) {
           ORDER BY a.id DESC
         `)
         .all();
+
+      const allAsisRows = allAsisRowsRaw.map((a) => ({
+        ...a,
+        sexo: normalizeSexo(a.sexo),
+        hora_llenado: resolveHoraLlenado(a),
+      }));
 
       const asistenciasPapelera = allAsisRows.filter((a) => Boolean(a.eliminado));
 
@@ -853,13 +874,15 @@ async function requestHandler(req, res) {
         req.socket.remoteAddress ||
         '';
       const userAgent = String(req.headers['user-agent'] || '').slice(0, 250);
-      const registradoEn = getNowISO();
+      const nowDate = new Date();
+      const registradoEn = nowDate.toISOString();
+      const horaLlenado = getLocalTimeStr(nowDate);
 
       const result = db
         .prepare(`
           INSERT INTO asistencias (
-            evento_id, unidad, cargo, sexo, tema, nombre, fecha, hora, firma_base64, ip_dispositivo, user_agent, registrado_en, actualizado_en
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            evento_id, unidad, cargo, sexo, tema, nombre, fecha, hora, hora_llenado, firma_base64, ip_dispositivo, user_agent, registrado_en, actualizado_en
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
         .run(
           evento.id,
@@ -870,6 +893,7 @@ async function requestHandler(req, res) {
           nombre,
           evento.fecha,
           evento.hora,
+          horaLlenado,
           firmaBase64,
           ip,
           userAgent,
@@ -970,6 +994,7 @@ async function requestHandler(req, res) {
       const normalizedRows = rows.map((r) => ({
         ...r,
         sexo: normalizeSexo(r.sexo),
+        hora_llenado: resolveHoraLlenado(r),
       }));
 
       return sendJSON(res, 200, {
@@ -978,9 +1003,66 @@ async function requestHandler(req, res) {
       });
     }
 
-    const deleteAsistenciaMatch = pathname.match(/^\/api\/asistencias\/(\d+)$/);
-    if (deleteAsistenciaMatch && method === 'DELETE') {
-      const id = Number(deleteAsistenciaMatch[1]);
+    const asistenciaIdMatch = pathname.match(/^\/api\/asistencias\/(\d+)$/);
+    if (asistenciaIdMatch && method === 'PUT') {
+      const id = Number(asistenciaIdMatch[1]);
+      const existing = db.prepare('SELECT * FROM asistencias WHERE id = ?').get(id);
+      if (!existing) {
+        return sendJSON(res, 404, { error: 'Registro de asistencia no encontrado.' });
+      }
+      const body = await readJsonBody(req);
+      const nombre = body.nombre !== undefined ? String(body.nombre).trim() : existing.nombre;
+      const unidad = body.unidad !== undefined ? String(body.unidad).trim() : existing.unidad;
+      const cargo = body.cargo !== undefined ? String(body.cargo).trim() : existing.cargo;
+      const sexo = body.sexo !== undefined ? normalizeSexo(body.sexo) : normalizeSexo(existing.sexo);
+      const fecha = body.fecha !== undefined ? String(body.fecha).trim() : existing.fecha;
+      const hora = body.hora !== undefined ? String(body.hora).trim() : existing.hora;
+      const horaLlenado =
+        body.hora_llenado !== undefined
+          ? String(body.hora_llenado).trim()
+          : resolveHoraLlenado(existing);
+
+      if (!nombre || nombre.length < 2) {
+        return sendJSON(res, 400, { error: 'El nombre completo del participante es obligatorio.' });
+      }
+      if (!unidad) {
+        return sendJSON(res, 400, { error: 'La unidad del participante es obligatoria.' });
+      }
+
+      const nowIso = getNowISO();
+      db.prepare(`
+        UPDATE asistencias
+        SET nombre = ?, unidad = ?, cargo = ?, sexo = ?, fecha = ?, hora = ?, hora_llenado = ?, actualizado_en = ?
+        WHERE id = ?
+      `).run(nombre, unidad, cargo, sexo, fecha, hora, horaLlenado, nowIso, id);
+
+      const updated = db
+        .prepare(`
+          SELECT
+            a.*,
+            e.token as evento_token,
+            e.lugar as evento_lugar,
+            e.tipo as evento_tipo,
+            e.direccion_organiza as evento_direccion_organiza,
+            e.proceso_iso as evento_proceso_iso,
+            e.planificacion as evento_planificacion
+          FROM asistencias a
+          LEFT JOIN eventos e ON e.id = a.evento_id
+          WHERE a.id = ?
+        `)
+        .get(id);
+
+      const enriched = {
+        ...updated,
+        sexo: normalizeSexo(updated.sexo),
+        hora_llenado: resolveHoraLlenado(updated),
+      };
+      broadcastSSE('asistencia_actualizada', { asistencia: enriched });
+      return sendJSON(res, 200, { ok: true, registro: enriched });
+    }
+
+    if (asistenciaIdMatch && method === 'DELETE') {
+      const id = Number(asistenciaIdMatch[1]);
       const now = getNowISO();
       db.prepare('UPDATE asistencias SET eliminado = 1, eliminado_en = ?, actualizado_en = ? WHERE id = ?').run(now, now, id);
       broadcastSSE('asistencia_eliminada', { id, papelera: true });
@@ -1113,7 +1195,7 @@ async function requestHandler(req, res) {
       const rowsRaw = db
         .prepare(`
           SELECT
-            a.id, a.fecha, a.hora, a.tema,
+            a.id, a.fecha, a.hora, a.hora_llenado, a.tema,
             e.direccion_organiza, e.lugar, e.tipo, e.proceso_iso, e.planificacion,
             a.unidad, a.cargo, a.sexo, a.nombre, a.registrado_en, a.ip_dispositivo
           FROM asistencias a
@@ -1147,6 +1229,7 @@ async function requestHandler(req, res) {
         'Folio',
         'Fecha Reunión',
         'Hora Reunión',
+        'Hora de Llenado',
         'Tema de Reunión',
         'Dirección que Organiza',
         'Lugar',
@@ -1172,8 +1255,9 @@ async function requestHandler(req, res) {
         csvLines.push(
           [
             r.id,
-            r.fecha,
+            formatFechaEs(r.fecha),
             formatHoraAmPm(r.hora),
+            formatHoraAmPm(resolveHoraLlenado(r)),
             r.tema,
             r.direccion_organiza || '',
             r.lugar || '',
@@ -1184,7 +1268,7 @@ async function requestHandler(req, res) {
             r.cargo || '',
             sxNorm || '',
             r.nombre,
-            r.registrado_en,
+            formatRegistradoEnDisplay(r.registrado_en),
             r.ip_dispositivo || '',
           ]
             .map(escapeCSV)
@@ -1252,7 +1336,7 @@ async function requestHandler(req, res) {
       const rowsRaw = db
         .prepare(`
           SELECT
-            a.id, a.evento_id, a.fecha, a.hora, a.tema,
+            a.id, a.evento_id, a.fecha, a.hora, a.hora_llenado, a.tema,
             e.direccion_organiza, e.lugar, e.tipo, e.proceso_iso, e.planificacion,
             a.unidad, a.cargo, a.sexo, a.nombre, a.registrado_en, a.ip_dispositivo
           FROM asistencias a
@@ -1337,6 +1421,7 @@ async function requestHandler(req, res) {
         'Folio',
         'Fecha Reunión',
         'Hora Reunión',
+        'Hora de Llenado',
         'Tema de Reunión',
         'Dirección que Organiza',
         'Lugar',
@@ -1362,8 +1447,9 @@ async function requestHandler(req, res) {
         detailRows.push([
           idx + 1,
           Number(r.id),
-          r.fecha || '',
+          formatFechaEs(r.fecha || ''),
           formatHoraAmPm(r.hora),
+          formatHoraAmPm(resolveHoraLlenado(r)),
           r.tema || '',
           r.direccion_organiza || '',
           r.lugar || '',
@@ -1374,7 +1460,7 @@ async function requestHandler(req, res) {
           r.unidad || '',
           r.cargo || '',
           sxNorm || '',
-          r.registrado_en || '',
+          formatRegistradoEnDisplay(r.registrado_en),
           r.ip_dispositivo || '',
         ]);
       });
@@ -1415,7 +1501,7 @@ async function requestHandler(req, res) {
         agendaTotalParticipants += stats.total;
         return [
           idx + 1,
-          ev.fecha || '',
+          formatFechaEs(ev.fecha || ''),
           formatHoraAmPm(ev.hora),
           ev.tema || '',
           ev.direccion_organiza || '',

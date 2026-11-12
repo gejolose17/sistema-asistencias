@@ -446,6 +446,19 @@
         .replace(/>/g, '&gt;');
     }
 
+    function formatFechaEs(fechaStr) {
+      const raw = String(fechaStr || '').trim();
+      if (!raw || raw === '--') return raw;
+      if (/^\d{2}-[A-Za-zÁÉÍÓÚáéíóú]{3}-\d{4}$/.test(raw)) return raw;
+      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const parts = raw.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        const mIdx = parseInt(parts[1], 10) - 1;
+        if (mIdx >= 0 && mIdx < 12) return `${parts[2]}-${months[mIdx]}-${parts[0]}`;
+      }
+      return raw;
+    }
+
     function formatHoraAmPm(horaStr) {
       const raw = String(horaStr || '').trim();
       if (!raw || raw === 'Sin límite' || raw === '--' || raw === '--:--') return raw || '--';
@@ -514,7 +527,7 @@
         const ev = evData.evento;
         orgDir = ev.direccion_organiza || '';
         document.getElementById('metaTema').textContent = ev.tema;
-        document.getElementById('metaFecha').textContent = ev.fecha;
+        document.getElementById('metaFecha').textContent = formatFechaEs(ev.fecha);
         document.getElementById('metaHora').textContent = `${formatHoraAmPm(ev.hora)} (Cierre: ${formatHoraAmPm(ev.hora_cierre)})`;
         document.getElementById('metaDireccion').textContent = ev.direccion_organiza || '--';
         document.getElementById('metaLugarTipo').textContent = `${ev.lugar || 'Institucional'} (${ev.tipo || 'Presencial'})`;
@@ -575,7 +588,7 @@
           <td>${escapeHtml(row.unidad)}</td>
           <td>${escapeHtml(row.cargo || '-')}</td>
           <td style="text-align:center;">${escapeHtml(normalizeSexoDisplay(row.sexo) || '-')}</td>
-          <td style="text-align:center;">${escapeHtml(row.fecha)}<br/><small style="color:#64748b">${escapeHtml(formatHoraAmPm(row.hora))}</small></td>
+          <td style="text-align:center;">${escapeHtml(formatFechaEs(row.fecha))}<br/><small style="color:#64748b">${escapeHtml(formatHoraAmPm(row.hora_llenado || row.hora))}</small></td>
           <td class="sig-cell">
             <img src="${row.firma_base64}" alt="Firma de ${escapeHtml(row.nombre)}" />
           </td>

@@ -578,6 +578,19 @@
         .replace(/>/g, '&gt;');
     }
 
+    function formatFechaEs(fechaStr) {
+      const raw = String(fechaStr || '').trim();
+      if (!raw || raw === '--') return raw;
+      if (/^\d{2}-[A-Za-zÁÉÍÓÚáéíóú]{3}-\d{4}$/.test(raw)) return raw;
+      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const parts = raw.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        const mIdx = parseInt(parts[1], 10) - 1;
+        if (mIdx >= 0 && mIdx < 12) return `${parts[2]}-${months[mIdx]}-${parts[0]}`;
+      }
+      return raw;
+    }
+
     function formatHoraAmPm(horaStr) {
       const raw = String(horaStr || '').trim();
       if (!raw || raw === '--' || raw === '--:--') return raw || '--';
@@ -664,7 +677,7 @@
           if (target) {
             eventDireccionOrganiza = target.direccion_organiza || '';
             document.getElementById('bannerTema').textContent = target.tema;
-            document.getElementById('bannerFecha').textContent = target.fecha;
+            document.getElementById('bannerFecha').textContent = formatFechaEs(target.fecha);
             document.getElementById('bannerHora').textContent = formatHoraAmPm(target.hora);
             document.getElementById('bannerDireccion').textContent = target.direccion_organiza || 'Institucional';
             document.getElementById('bannerLugarTipo').textContent = `${target.lugar || 'Institucional'} (${target.tipo || 'Presencial'})`;
@@ -682,7 +695,7 @@
         const filterPills = [];
         if (unidad) filterPills.push(`Unidad: ${unidad}`);
         if (procesoIso) filterPills.push(`ISO: ${procesoIso}`);
-        if (fecha) filterPills.push(`Fecha: ${fecha}`);
+        if (fecha) filterPills.push(`Fecha: ${formatFechaEs(fecha)}`);
         if (q) filterPills.push(`Búsqueda: "${q}"`);
         document.getElementById('filterSummaryPill').textContent =
           filterPills.length > 0 ? `Filtros: ${filterPills.join(' | ')}` : 'Lista Completa General';
@@ -699,7 +712,7 @@
           } catch (_) {}
         }
         if (procesoIso) document.getElementById('bannerProceso').textContent = procesoIso;
-        if (fecha) document.getElementById('bannerFecha').textContent = fecha;
+        if (fecha) document.getElementById('bannerFecha').textContent = formatFechaEs(fecha);
       }
 
       // 3. Cargar Asistencias según los filtros
@@ -728,7 +741,7 @@
           const uPlanes = uniq(rawList.map((r) => r.evento_planificacion));
 
           if (uTemas.length === 1) document.getElementById('bannerTema').textContent = uTemas[0];
-          if (uFechas.length === 1) document.getElementById('bannerFecha').textContent = uFechas[0];
+          if (uFechas.length === 1) document.getElementById('bannerFecha').textContent = formatFechaEs(uFechas[0]);
           if (uHoras.length === 1) document.getElementById('bannerHora').textContent = formatHoraAmPm(uHoras[0]);
           else if (uHoras.length > 1) document.getElementById('bannerHora').textContent = uHoras.map(formatHoraAmPm).join(' / ');
           if (uLugares.length === 1) document.getElementById('bannerLugarTipo').textContent = uLugares[0];

@@ -853,7 +853,7 @@
         prevData = canvas.toDataURL('image/png');
       }
 
-      const dpr = Math.max(window.devicePixelRatio || 1, 1);
+      const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2);
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -951,10 +951,16 @@
     window.addEventListener('resize', resizeCanvas);
 
     function formatFechaDisplay(fechaStr) {
-      if (!fechaStr) return '';
-      const parts = fechaStr.split('-');
-      if (parts.length !== 3) return fechaStr;
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      const raw = String(fechaStr || '').trim();
+      if (!raw || raw === '--') return raw;
+      if (/^\d{2}-[A-Za-zÁÉÍÓÚáéíóú]{3}-\d{4}$/.test(raw)) return raw;
+      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const parts = raw.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        const mIdx = parseInt(parts[1], 10) - 1;
+        if (mIdx >= 0 && mIdx < 12) return `${parts[2]}-${months[mIdx]}-${parts[0]}`;
+      }
+      return raw;
     }
 
     function formatHoraAmPm(horaStr) {
@@ -1312,7 +1318,8 @@
           <div class="receipt-row"><span>Unidad:</span><strong>${escapeHtml(reg.unidad)}</strong></div>
           ${reg.cargo ? `<div class="receipt-row"><span>Cargo:</span><strong>${escapeHtml(reg.cargo)}</strong></div>` : ''}
           <div class="receipt-row"><span>Tema:</span><strong>${escapeHtml(reg.tema)}</strong></div>
-          <div class="receipt-row"><span>Fecha y Hora:</span><strong>${escapeHtml(formatFechaDisplay(reg.fecha))} — ${escapeHtml(reg.hora)}</strong></div>
+          <div class="receipt-row"><span>Fecha y Hora Reunión:</span><strong>${escapeHtml(formatFechaDisplay(reg.fecha))} — ${escapeHtml(formatHoraAmPm(reg.hora))}</strong></div>
+          ${reg.hora_llenado ? `<div class="receipt-row"><span>Hora de Llenado:</span><strong>${escapeHtml(formatHoraAmPm(reg.hora_llenado))}</strong></div>` : ''}
         `;
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch {

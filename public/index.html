@@ -1399,19 +1399,20 @@
                 <thead>
                   <tr>
                     <th>Folio</th>
-                    <th>Fecha / Hora</th>
+                    <th>Fecha / Hora Reunión</th>
+                    <th>Hora de Llenado</th>
                     <th>Tema de Reunión</th>
                     <th>Dirección / Proceso ISO</th>
                     <th>Nombre del Participante</th>
                     <th>Unidad</th>
                     <th>Cargo / Sexo</th>
                     <th>Firma Digital</th>
-                    <th>Acción</th>
+                    <th style="text-align:center;">Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="centralDbTableBody">
                   <tr>
-                    <td colspan="9" style="text-align:center;padding:28px;">Cargando base de datos...</td>
+                    <td colspan="10" style="text-align:center;padding:28px;">Cargando base de datos...</td>
                   </tr>
                 </tbody>
               </table>
@@ -1829,11 +1830,134 @@
     </div>
   </div>
 
+  <!-- MODAL: EDITAR REGISTRO DE ASISTENCIA -->
+  <div class="modal-backdrop" id="editAsistenciaModalBackdrop">
+    <div class="qr-modal" style="max-width:560px;text-align:left;">
+      <div class="qr-modal-header">
+        <strong>✏️ EDITAR REGISTRO DE ASISTENCIA <span id="editAsisFolioBadge"></span></strong>
+        <button
+          type="button"
+          onclick="closeEditAsistenciaModal()"
+          style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;"
+        >✕</button>
+      </div>
+      <div class="qr-modal-body" style="padding:22px;">
+        <div id="editAsisErrorBox" class="error-alert" style="margin-bottom:14px;"></div>
+        <form id="editAsistenciaForm">
+          <input type="hidden" id="editAsisId" />
+          <div style="margin-bottom:12px;">
+            <label class="lbl" for="editAsisNombre">Nombre Completo <span class="req">*</span></label>
+            <input type="text" id="editAsisNombre" class="inp" required />
+          </div>
+          <div style="margin-bottom:12px;">
+            <label class="lbl" for="editAsisUnidad">Unidad <span class="req">*</span></label>
+            <select id="editAsisUnidad" class="sel" required></select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div>
+              <label class="lbl" for="editAsisCargo">Cargo</label>
+              <select id="editAsisCargo" class="sel"></select>
+            </div>
+            <div>
+              <label class="lbl" for="editAsisSexo">Sexo</label>
+              <select id="editAsisSexo" class="sel">
+                <option value="">-- Seleccione --</option>
+                <option value="Mujer">Mujer</option>
+                <option value="Varón">Varón</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px;">
+            <div>
+              <label class="lbl" for="editAsisFecha">Fecha</label>
+              <input type="date" id="editAsisFecha" class="inp" />
+            </div>
+            <div>
+              <label class="lbl" for="editAsisHora">Hora Reunión</label>
+              <input type="time" id="editAsisHora" class="inp" />
+            </div>
+            <div>
+              <label class="lbl" for="editAsisHoraLlenado">Hora de Llenado</label>
+              <input type="time" id="editAsisHoraLlenado" class="inp" />
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" class="btn-outline" onclick="closeEditAsistenciaModal()">Cancelar</button>
+            <button type="submit" class="btn-primary" id="saveEditAsisBtn">💾 Guardar Cambios</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: EDITAR LISTA / AGENDA DE REUNIÓN -->
+  <div class="modal-backdrop" id="editEventoModalBackdrop">
+    <div class="qr-modal" style="max-width:600px;text-align:left;">
+      <div class="qr-modal-header">
+        <strong>✏️ EDITAR REUNIÓN / AGENDA</strong>
+        <button
+          type="button"
+          onclick="closeEditEventoModal()"
+          style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;"
+        >✕</button>
+      </div>
+      <div class="qr-modal-body" style="padding:22px;">
+        <div id="editEvErrorBox" class="error-alert" style="margin-bottom:14px;"></div>
+        <form id="editEventoForm">
+          <input type="hidden" id="editEvId" />
+          <div style="margin-bottom:12px;">
+            <label class="lbl" for="editEvTema">Tema de la Reunión <span class="req">*</span></label>
+            <input type="text" id="editEvTema" class="inp" required />
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div>
+              <label class="lbl" for="editEvFecha">Fecha <span class="req">*</span></label>
+              <input type="date" id="editEvFecha" class="inp" required />
+            </div>
+            <div>
+              <label class="lbl" for="editEvHora">Hora <span class="req">*</span></label>
+              <input type="time" id="editEvHora" class="inp" required />
+            </div>
+            <div>
+              <label class="lbl" for="editEvTipo">Modalidad</label>
+              <select id="editEvTipo" class="sel"></select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div>
+              <label class="lbl" for="editEvDireccion">Dirección que Organiza</label>
+              <select id="editEvDireccion" class="sel"></select>
+            </div>
+            <div>
+              <label class="lbl" for="editEvLugar">Lugar / Sala</label>
+              <input type="text" id="editEvLugar" class="inp" />
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
+            <div>
+              <label class="lbl" for="editEvProcesoIso">Proceso ISO</label>
+              <select id="editEvProcesoIso" class="sel"></select>
+            </div>
+            <div>
+              <label class="lbl" for="editEvPlanificacion">Planificación</label>
+              <select id="editEvPlanificacion" class="sel"></select>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" class="btn-outline" onclick="closeEditEventoModal()">Cancelar</button>
+            <button type="submit" class="btn-primary" id="saveEditEvBtn">💾 Guardar Cambios</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toastMsg"></div>
 
   <script>
     const STORAGE_KEY = 'uam_asistencias_state_v2';
     let allEvents = [];
+    let lastLoadedAsistencias = [];
     let catalogosGrouped = {};
     let catalogosCampos = [];
     let currentCatalogCategory = 'UNIDAD';
@@ -1943,7 +2067,7 @@
         const prevVal = evFilter.value;
         evFilter.innerHTML = '<option value="">-- Todas las Listas --</option>';
         for (const ev of allEvents) {
-          evFilter.innerHTML += `<option value="${ev.id}">${escapeHtml(ev.fecha)} (${escapeHtml(ev.hora)}) — ${escapeHtml(ev.tema)}</option>`;
+          evFilter.innerHTML += `<option value="${ev.id}">${escapeHtml(formatFechaEs(ev.fecha))} (${escapeHtml(formatHoraAmPmUi(ev.hora))}) — ${escapeHtml(ev.tema)}</option>`;
         }
         evFilter.value = prevVal;
       }
@@ -1964,17 +2088,43 @@
     async function syncWithServer() {
       const b = loadLocalBackup();
       try {
-        const res = await fetch('/api/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            eventos: b.allEventosRaw,
-            asistencias: b.allAsistenciasRaw,
-            purgedEventIds: b.purgedEventIds,
-            purgedAsistenciaIds: b.purgedAsistenciaIds,
-          }),
-        });
-        if (!res.ok) throw new Error('Sync error');
+        const asisList = Array.isArray(b.allAsistenciasRaw) ? b.allAsistenciasRaw : [];
+        const basePayload = {
+          eventos: b.allEventosRaw || [],
+          purgedEventIds: b.purgedEventIds || [],
+          purgedAsistenciaIds: b.purgedAsistenciaIds || [],
+        };
+
+        // Si el respaldo supera ~1.5MB, enviar asistencias por lotes para evitar límite de 4.5MB en Vercel
+        const estimatedSize = JSON.stringify(asisList).length;
+        let res;
+        if (estimatedSize > 1500000 && asisList.length > 20) {
+          const batchSize = 20;
+          for (let i = 0; i < asisList.length; i += batchSize) {
+            const chunk = asisList.slice(i, i + batchSize);
+            const isLast = i + batchSize >= asisList.length;
+            res = await fetch('/api/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...basePayload,
+                asistencias: chunk,
+                syncOnly: !isLast,
+              }),
+            });
+            if (!res.ok) throw new Error('Sync chunk error');
+          }
+        } else {
+          res = await fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...basePayload,
+              asistencias: asisList,
+            }),
+          });
+        }
+        if (!res || !res.ok) throw new Error('Sync error');
         const data = await res.json();
         saveLocalBackup({
           allEventosRaw: Array.isArray(data.allEventosRaw) ? data.allEventosRaw : b.allEventosRaw,
@@ -2307,7 +2457,7 @@
           </span>
           <h3 style="font-size:1.15rem;color:var(--dark-gray);margin-bottom:4px;">${escapeHtml(ev.tema)}</h3>
           <p style="font-size:0.84rem;color:var(--muted);font-weight:700;margin-bottom:10px;">
-            📅 ${escapeHtml(ev.fecha)} | ⏰ ${escapeHtml(ev.hora)} (${cierreLabel})
+            📅 ${escapeHtml(formatFechaEs(ev.fecha))} | ⏰ ${escapeHtml(formatHoraAmPmUi(ev.hora))} (${cierreLabel})
           </p>
           <div class="qr-frame" style="padding:10px;">
             <img src="${ev.qr_svg_url}" alt="QR" style="width:210px;height:210px;display:block;" />
@@ -2482,7 +2632,7 @@
         headerTitle.textContent = '📋 Reunión Seleccionada';
       } else if (selectedCalendarDateStr) {
         list = allEvents.filter((e) => e.fecha === selectedCalendarDateStr);
-        headerTitle.textContent = `📋 Listas del ${selectedCalendarDateStr} (${list.length})`;
+        headerTitle.textContent = `📋 Listas del ${formatFechaEs(selectedCalendarDateStr)} (${list.length})`;
       } else {
         headerTitle.textContent = `📋 Todas las Listas (${allEvents.length})`;
       }
@@ -2525,7 +2675,7 @@
             </div>
 
             <div style="font-size:0.8rem;color:var(--slate);line-height:1.55;margin-bottom:10px;">
-              <div>📅 <b>Fecha:</b> ${escapeHtml(ev.fecha)} &nbsp;|&nbsp; ⏰ <b>Hora:</b> ${escapeHtml(ev.hora)} (Cierre: ${cierreTexto})</div>
+              <div>📅 <b>Fecha:</b> ${escapeHtml(formatFechaEs(ev.fecha))} &nbsp;|&nbsp; ⏰ <b>Hora:</b> ${escapeHtml(formatHoraAmPmUi(ev.hora))} (Cierre: ${cierreTexto})</div>
               <div>🏢 <b>Organiza:</b> ${escapeHtml(ev.direccion_organiza || '-')}</div>
               <div>📍 <b>Lugar:</b> ${escapeHtml(ev.lugar || '-')} &nbsp;|&nbsp; 💻 <b>Tipo:</b> ${escapeHtml(ev.tipo || 'Presencial')}</div>
               <div>📋 <b>Proceso ISO:</b> ${escapeHtml(ev.proceso_iso || '-')}</div>
@@ -2729,6 +2879,54 @@
     }
 
     // ── Pestaña 3: Base de Datos General ──
+    const SPANISH_MONTHS_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+    function formatFechaEs(fechaStr) {
+      const raw = String(fechaStr || '').trim();
+      if (!raw || raw === '--' || raw === 'Permanente') return raw;
+      if (/^\d{2}-[A-Za-zÁÉÍÓÚáéíóú]{3}-\d{4}$/.test(raw)) return raw;
+      const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) {
+        const mIdx = parseInt(isoMatch[2], 10) - 1;
+        if (mIdx >= 0 && mIdx < 12) return `${isoMatch[3]}-${SPANISH_MONTHS_ES[mIdx]}-${isoMatch[1]}`;
+      }
+      const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (slashMatch) {
+        const d = String(slashMatch[1]).padStart(2, '0');
+        const mIdx = parseInt(slashMatch[2], 10) - 1;
+        if (mIdx >= 0 && mIdx < 12) return `${d}-${SPANISH_MONTHS_ES[mIdx]}-${slashMatch[3]}`;
+      }
+      return raw;
+    }
+
+    function toLocalTimeUtcMinus6(isoStr) {
+      if (!isoStr) return '';
+      const dt = new Date(isoStr);
+      if (isNaN(dt.getTime())) return '';
+      const shifted = new Date(dt.getTime() - 360 * 60 * 1000);
+      const hh = String(shifted.getUTCHours()).padStart(2, '0');
+      const mm = String(shifted.getUTCMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+
+    function toLocalDateUtcMinus6(isoStr) {
+      if (!isoStr) return '';
+      const dt = new Date(isoStr);
+      if (isNaN(dt.getTime())) return '';
+      const shifted = new Date(dt.getTime() - 360 * 60 * 1000);
+      const y = shifted.getUTCFullYear();
+      const m = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(shifted.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function resolveHoraLlenadoUi(row) {
+      if (!row) return '';
+      const explicit = String(row.hora_llenado || '').trim();
+      if (explicit) return explicit;
+      return toLocalTimeUtcMinus6(row.registrado_en);
+    }
+
     function normalizeSexoLabel(val) {
       const s = String(val || '').trim();
       const low = s.toLowerCase();
@@ -2890,7 +3088,7 @@
             <tr>
               <td style="text-align:center;"><strong>${idx + 1}</strong></td>
               <td>
-                <strong>${escapeHtml(ev.fecha)}</strong><br/>
+                <strong>${escapeHtml(formatFechaEs(ev.fecha))}</strong><br/>
                 <small style="color:var(--muted)">${escapeHtml(formatHoraAmPmUi(ev.hora))} (${escapeHtml(ev.tipo || 'Presencial')})</small>
               </td>
               <td>
@@ -2953,6 +3151,15 @@
                     type="button"
                     class="btn-outline"
                     style="padding:5px 8px;font-size:0.74rem;"
+                    onclick="openEditEventoModal('${ev.id}')"
+                    title="Editar datos de esta lista / agenda"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-outline"
+                    style="padding:5px 8px;font-size:0.74rem;"
                     onclick="openQrModal('${ev.id}')"
                     title="Ver QR y vínculo de esta lista"
                   >
@@ -2983,6 +3190,7 @@
       const res = await fetch(`/api/asistencias?${params.toString()}`);
       const data = await res.json();
       const list = data.asistencias || [];
+      lastLoadedAsistencias = list;
 
       if (!q && !eventoId && !unidad && !procesoIso && !fecha) {
         document.getElementById('badgeAsistenciasCount').textContent = list.length;
@@ -2994,7 +3202,7 @@
       if (list.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="9" style="text-align:center;padding:30px;color:var(--muted);">
+            <td colspan="10" style="text-align:center;padding:30px;color:var(--muted);">
               No hay registros de asistencia para los filtros seleccionados.
             </td>
           </tr>
@@ -3003,13 +3211,21 @@
       }
 
       tbody.innerHTML = list
-        .map(
-          (row) => `
+        .map((row) => {
+          const horaLlenadoRaw = resolveHoraLlenadoUi(row);
+          const horaLlenadoStr = horaLlenadoRaw ? formatHoraAmPmUi(horaLlenadoRaw) : '-';
+          const fechaLlenadoIso = toLocalDateUtcMinus6(row.registrado_en);
+          const fechaLlenadoStr = fechaLlenadoIso ? formatFechaEs(fechaLlenadoIso) : '';
+          return `
         <tr>
           <td><strong>#${row.id}</strong></td>
           <td>
-            <strong>${escapeHtml(row.fecha)}</strong><br/>
+            <strong>${escapeHtml(formatFechaEs(row.fecha))}</strong><br/>
             <small style="color:var(--muted)">${escapeHtml(formatHoraAmPmUi(row.hora))} (${escapeHtml(row.evento_tipo || 'Presencial')})</small>
+          </td>
+          <td>
+            <strong style="color:var(--primary-dark);">${escapeHtml(horaLlenadoStr)}</strong>
+            ${fechaLlenadoStr ? `<br/><small style="color:var(--muted)">${escapeHtml(fechaLlenadoStr)}</small>` : ''}
           </td>
           <td>
             <strong>${escapeHtml(row.tema)}</strong><br/>
@@ -3027,18 +3243,30 @@
           </td>
           <td><img class="sig-thumb" src="${row.firma_base64}" alt="Firma" /></td>
           <td>
-            <button
-              type="button"
-              class="btn-outline"
-              style="padding:4px 8px;font-size:0.74rem;color:#dc2626;"
-              onclick="deleteAsistenciaRecord(${row.id})"
-            >
-              Eliminar
-            </button>
+            <div style="display:flex;gap:5px;justify-content:center;">
+              <button
+                type="button"
+                class="btn-outline"
+                style="padding:4px 8px;font-size:0.74rem;"
+                onclick="openEditAsistenciaModal(${row.id})"
+                title="Editar datos de este registro"
+              >
+                ✏️ Editar
+              </button>
+              <button
+                type="button"
+                class="btn-outline"
+                style="padding:4px 8px;font-size:0.74rem;color:#dc2626;"
+                onclick="deleteAsistenciaRecord(${row.id})"
+                title="Enviar registro a la papelera"
+              >
+                Eliminar
+              </button>
+            </div>
           </td>
         </tr>
-      `
-        )
+      `;
+        })
         .join('');
     }
 
@@ -3116,6 +3344,224 @@
       await syncWithServer();
     }
 
+    function populateSelectOptionsWithFallback(selectEl, items, currentVal, placeholderText) {
+      if (!selectEl) return;
+      const val = String(currentVal || '').trim();
+      selectEl.innerHTML = placeholderText ? `<option value="">${escapeHtml(placeholderText)}</option>` : '';
+      let found = false;
+      for (const item of items || []) {
+        const name = item.nombre || item;
+        if (!name) continue;
+        if (name === val) found = true;
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = item.codigo ? `${name} (${item.codigo})` : name;
+        selectEl.appendChild(opt);
+      }
+      if (val && !found) {
+        const extraOpt = document.createElement('option');
+        extraOpt.value = val;
+        extraOpt.textContent = val;
+        selectEl.appendChild(extraOpt);
+      }
+      selectEl.value = val;
+    }
+
+    function openEditAsistenciaModal(id) {
+      const b = loadLocalBackup();
+      const row =
+        lastLoadedAsistencias.find((a) => Number(a.id) === Number(id)) ||
+        (b.allAsistenciasRaw || []).find((a) => Number(a.id) === Number(id));
+      if (!row) {
+        showToast('No se encontró el registro para editar.');
+        return;
+      }
+
+      document.getElementById('editAsisErrorBox').style.display = 'none';
+      document.getElementById('editAsisId').value = row.id;
+      document.getElementById('editAsisFolioBadge').textContent = `#${row.id}`;
+      document.getElementById('editAsisNombre').value = row.nombre || '';
+
+      populateSelectOptionsWithFallback(
+        document.getElementById('editAsisUnidad'),
+        (catalogosGrouped.UNIDAD || []).filter((u) => u.activo !== 0),
+        row.unidad || '',
+        '-- Seleccione Unidad --'
+      );
+      populateSelectOptionsWithFallback(
+        document.getElementById('editAsisCargo'),
+        (catalogosGrouped.CARGO || []).filter((c) => c.activo !== 0),
+        row.cargo || '',
+        '-- Sin Cargo / Seleccione --'
+      );
+
+      document.getElementById('editAsisSexo').value = normalizeSexoLabel(row.sexo || '');
+      document.getElementById('editAsisFecha').value = /^\d{4}-\d{2}-\d{2}$/.test(String(row.fecha || ''))
+        ? row.fecha
+        : '';
+      document.getElementById('editAsisHora').value = String(row.hora || '').slice(0, 5);
+      document.getElementById('editAsisHoraLlenado').value = String(resolveHoraLlenadoUi(row) || '').slice(0, 5);
+
+      document.getElementById('editAsistenciaModalBackdrop').classList.add('open');
+      document.getElementById('editAsisNombre').focus();
+    }
+
+    function closeEditAsistenciaModal() {
+      document.getElementById('editAsistenciaModalBackdrop').classList.remove('open');
+    }
+
+    document.getElementById('editAsistenciaForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('editAsisErrorBox');
+      errBox.style.display = 'none';
+
+      const id = Number(document.getElementById('editAsisId').value);
+      const payload = {
+        nombre: document.getElementById('editAsisNombre').value.trim(),
+        unidad: document.getElementById('editAsisUnidad').value.trim(),
+        cargo: document.getElementById('editAsisCargo').value.trim(),
+        sexo: document.getElementById('editAsisSexo').value.trim(),
+        fecha: document.getElementById('editAsisFecha').value.trim(),
+        hora: document.getElementById('editAsisHora').value.trim(),
+        hora_llenado: document.getElementById('editAsisHoraLlenado').value.trim(),
+      };
+
+      if (!payload.nombre || payload.nombre.length < 2) {
+        errBox.textContent = 'Por favor ingrese el nombre completo del participante.';
+        errBox.style.display = 'block';
+        return;
+      }
+      if (!payload.unidad) {
+        errBox.textContent = 'Por favor seleccione la unidad del participante.';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      const btn = document.getElementById('saveEditAsisBtn');
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/asistencias/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errBox.textContent = data.error || 'No se pudo actualizar el registro.';
+          errBox.style.display = 'block';
+          return;
+        }
+        const nowIso = new Date().toISOString();
+        const b = loadLocalBackup();
+        b.allAsistenciasRaw = (b.allAsistenciasRaw || []).map((a) =>
+          Number(a.id) === id ? { ...a, ...(data.registro || payload), actualizado_en: nowIso } : a
+        );
+        saveLocalBackup({ allAsistenciasRaw: b.allAsistenciasRaw });
+
+        closeEditAsistenciaModal();
+        showToast('✅ Registro de asistencia actualizado correctamente.');
+        await syncWithServer();
+      } catch {
+        errBox.textContent = 'Error de conexión al guardar los cambios.';
+        errBox.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    function openEditEventoModal(eventoId) {
+      const ev = allEvents.find((e) => e.id === eventoId);
+      if (!ev) return;
+
+      document.getElementById('editEvErrorBox').style.display = 'none';
+      document.getElementById('editEvId').value = ev.id;
+      document.getElementById('editEvTema').value = ev.tema || '';
+      document.getElementById('editEvFecha').value = ev.fecha || '';
+      document.getElementById('editEvHora').value = String(ev.hora || '').slice(0, 5);
+      document.getElementById('editEvLugar').value = ev.lugar || '';
+
+      populateSelectOptionsWithFallback(
+        document.getElementById('editEvTipo'),
+        (catalogosGrouped.TIPO || []).filter((t) => t.activo !== 0),
+        ev.tipo || 'Presencial',
+        ''
+      );
+      populateSelectOptionsWithFallback(
+        document.getElementById('editEvDireccion'),
+        (catalogosGrouped.UNIDAD || []).filter((u) => u.activo !== 0),
+        ev.direccion_organiza || '',
+        '-- Seleccione Dirección --'
+      );
+      populateSelectOptionsWithFallback(
+        document.getElementById('editEvProcesoIso'),
+        (catalogosGrouped.PROCESO_ISO || []).filter((p) => p.activo !== 0),
+        ev.proceso_iso || 'No Aplica',
+        'No Aplica'
+      );
+      populateSelectOptionsWithFallback(
+        document.getElementById('editEvPlanificacion'),
+        (catalogosGrouped.PLANIFICACION || []).filter((p) => p.activo !== 0),
+        ev.planificacion || 'No Aplica',
+        'No Aplica'
+      );
+
+      document.getElementById('editEventoModalBackdrop').classList.add('open');
+      document.getElementById('editEvTema').focus();
+    }
+
+    function closeEditEventoModal() {
+      document.getElementById('editEventoModalBackdrop').classList.remove('open');
+    }
+
+    document.getElementById('editEventoForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('editEvErrorBox');
+      errBox.style.display = 'none';
+
+      const id = document.getElementById('editEvId').value;
+      const payload = {
+        tema: document.getElementById('editEvTema').value.trim(),
+        fecha: document.getElementById('editEvFecha').value.trim(),
+        hora: document.getElementById('editEvHora').value.trim(),
+        tipo: document.getElementById('editEvTipo').value.trim(),
+        direccion_organiza: document.getElementById('editEvDireccion').value.trim(),
+        lugar: document.getElementById('editEvLugar').value.trim(),
+        proceso_iso: document.getElementById('editEvProcesoIso').value.trim() || 'No Aplica',
+        planificacion: document.getElementById('editEvPlanificacion').value.trim() || 'No Aplica',
+      };
+
+      if (!payload.tema || !payload.fecha || !payload.hora) {
+        errBox.textContent = 'Tema, Fecha y Hora son obligatorios.';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      const btn = document.getElementById('saveEditEvBtn');
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/eventos/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errBox.textContent = data.error || 'No se pudo actualizar la reunión.';
+          errBox.style.display = 'block';
+          return;
+        }
+        if (data.evento) upsertLocalEvento(data.evento);
+        closeEditEventoModal();
+        showToast('✅ Reunión / Agenda actualizada correctamente.');
+        await syncWithServer();
+      } catch {
+        errBox.textContent = 'Error de conexión al guardar la reunión.';
+        errBox.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
     // ── Pestaña 5: Papelera de Reciclaje (Restauración y Purga Definitiva) ──
     function renderPapeleraFromData(data) {
       const eventos = (data && data.eventos) || [];
@@ -3157,8 +3603,8 @@
                 <tr>
                   <td><strong>#${shortId}</strong></td>
                   <td>
-                    <strong>${escapeHtml(ev.fecha)}</strong><br/>
-                    <small style="color:var(--muted)">${escapeHtml(ev.hora)} (${escapeHtml(ev.tipo || 'Presencial')})</small>
+                    <strong>${escapeHtml(formatFechaEs(ev.fecha))}</strong><br/>
+                    <small style="color:var(--muted)">${escapeHtml(formatHoraAmPmUi(ev.hora))} (${escapeHtml(ev.tipo || 'Presencial')})</small>
                   </td>
                   <td>
                     <strong style="color:var(--dark-gray);">${escapeHtml(ev.tema)}</strong><br/>
@@ -3226,7 +3672,7 @@
                   </td>
                   <td>
                     <strong>${escapeHtml(a.tema || a.evento_tema || '-')}</strong><br/>
-                    <small style="color:var(--muted)">${escapeHtml(a.fecha || a.evento_fecha || '')}</small>
+                    <small style="color:var(--muted)">${escapeHtml(formatFechaEs(a.fecha || a.evento_fecha || ''))}</small>
                   </td>
                   <td><span class="state-pill active">${escapeHtml(a.unidad || '-')}</span></td>
                   <td>
@@ -3861,9 +4307,9 @@
 
     function updateQrModalContent(ev) {
       document.getElementById('qrModalTema').textContent = ev.tema;
-      const cierreLabel = ev.sin_limite_tiempo ? 'Sin límite' : ev.hora_cierre;
+      const cierreLabel = ev.sin_limite_tiempo ? 'Sin límite' : formatHoraAmPmUi(ev.hora_cierre);
       document.getElementById('qrModalFechaHora').textContent =
-        `Fecha: ${ev.fecha} | Hora: ${ev.hora} | Cierre: ${cierreLabel}`;
+        `Fecha: ${formatFechaEs(ev.fecha)} | Hora: ${formatHoraAmPmUi(ev.hora)} | Cierre: ${cierreLabel}`;
       document.getElementById('qrModalImg').src = ev.qr_svg_url;
       document.getElementById('qrModalLinkText').textContent = ev.vinculo;
       document.getElementById('qrModalOpenLink').href = `/asistencia/${encodeURIComponent(ev.token)}`;
@@ -3953,7 +4399,7 @@
           ctx.fillStyle = '#334155';
           ctx.font = 'bold 15px "Franklin Gothic", Arial, sans-serif';
           ctx.fillText(
-            `Fecha: ${activeQrModalEvent.fecha}  |  Hora: ${activeQrModalEvent.hora} (Cierra ${activeQrModalEvent.hora_cierre})`,
+            `Fecha: ${formatFechaEs(activeQrModalEvent.fecha)}  |  Hora: ${formatHoraAmPmUi(activeQrModalEvent.hora)} (Cierra ${formatHoraAmPmUi(activeQrModalEvent.hora_cierre)})`,
             300,
             555
           );
@@ -4006,6 +4452,7 @@
         showToast(`✍️ Nueva asistencia: ${data.asistencia.nombre} (${data.asistencia.unidad})`);
         syncWithServer();
       });
+      es.addEventListener('asistencia_actualizada', () => syncWithServer());
       es.addEventListener('evento_actualizado', () => syncWithServer());
       es.addEventListener('catalogo_actualizado', () => loadCatalogos());
       es.addEventListener('papelera_actualizada', () => syncWithServer());
